@@ -11,14 +11,24 @@ A .NET distributed system playground for AI exploration with multiple bounded co
 │   PostgreSQL  │   RabbitMQ    │    Qdrant     │    Ollama     │   Jaeger    │
 │   :5432       │ :5672/:15672  │  :6333/:6334  │    :11434     │   :16686    │
 └───────────────┴───────────────┴───────────────┴───────────────┴─────────────┘
-                                      │
-                    ┌─────────────────┼─────────────────┐
-                    │                 │                 │
-            ┌───────▼──────┐  ┌───────▼──────┐  ┌───────▼──────┐
-            │  Ordering    │  │  Invoicing   │  │  Customers   │
-            │    API       │  │    API       │  │    API       │
-            │   :5001      │  │   :5002      │  │   :5003      │
-            └──────────────┘  └──────────────┘  └──────────────┘
+         │              │               │               │
+         │    ┌─────────┼───────────────┼───────────────┘
+         │    │         │               │
+┌────────▼────▼────┐    │     ┌─────────▼─────────┐
+│   Ordering API   │────┼────▶│   AI.Processor    │
+│      :5001       │    │     │   (Worker)        │
+└──────────────────┘    │     │   Ollama + Qdrant │
+         │              │     └───────────────────┘
+         │              │               ▲
+┌────────▼────────┐     │               │ (Events)
+│  Invoicing API  │─────┤               │
+│     :5002       │     │               │
+└─────────────────┘     │               │
+         │              │               │
+┌────────▼────────┐     │               │
+│  Customers API  │─────┘───────────────┘
+│     :5003       │
+└─────────────────┘
 ```
 
 ## Bounded Contexts
@@ -62,10 +72,13 @@ docker-compose --profile full up -d
 # Terminal 1 - Ordering API
 dotnet run --project src/Services/Ordering.Api
 
-# Terminal 2 - Invoicing API  
+# Terminal 2 - AI Processor (Event Consumer)
+dotnet run --project src/Services/AI.Processor
+
+# Terminal 3 - Invoicing API  
 dotnet run --project src/Services/Invoicing.Api
 
-# Terminal 3 - Customers API
+# Terminal 4 - Customers API
 dotnet run --project src/Services/Customers.Api
 ```
 
@@ -164,6 +177,52 @@ CreateOrder ──▶ StartProcessing ──▶ Ship ──▶ Deliver ──▶
 - City, StateOrProvince, PostalCode, CountryCode
 - PhoneNumber, Notes
 
+## AI.Processor (Event Consumer Worker)
+
+Background worker service that consumes all Ordering events and processes them with AI capabilities.
+
+### Features
+
+- **Event Consumption**: Listens to all Ordering domain events via MassTransit/RabbitMQ
+- **LLM Integration**: Uses Ollama for text generation and event analysis
+- **Vector Storage**: Stores order embeddings in Qdrant for semantic search
+- **Distributed Tracing**: Full OpenTelemetry integration with Jaeger
+
+### Consumed Events
+
+| Consumer | Event | Processing |
+|----------|-------|------------|
+| `OrderCreatedConsumer` | `OrderCreated` | Generate embedding, store in Qdrant, analyze with LLM |
+| `OrderStatusChangedConsumer` | `OrderStatusChanged` | Update vector store, analyze status transition |
+| `OrderShippedConsumer` | `OrderShipped` | Store shipping details, analyze logistics |
+| `OrderDeliveredConsumer` | `OrderDelivered` | Update delivery status, completion analysis |
+| `OrderCancelledConsumer` | `OrderCancelled` | Analyze cancellation reasons for insights |
+| `OrderCompletedConsumer` | `OrderCompleted` | Generate order summary, final embedding |
+
+### Configuration
+
+```json
+{
+  "Ollama": {
+    "BaseUrl": "http://localhost:11434",
+    "Model": "llama3.2",
+    "EmbeddingModel": "nomic-embed-text"
+  },
+  "Qdrant": {
+    "Host": "localhost",
+    "Port": 6334,
+    "CollectionName": "orders"
+  }
+}
+```
+
+### Services
+
+| Service | Interface | Description |
+|---------|-----------|-------------|
+| `OllamaService` | `IOllamaService` | LLM completions and embeddings |
+| `QdrantService` | `IQdrantService` | Vector storage and semantic search |
+
 ## Project Structure
 
 ```
@@ -192,6 +251,20 @@ DistributedPlayground/
 │   │   │   │   ├── InvoiceOrderConsumer.cs
 │   │   │   │   ├── CancelOrderConsumer.cs
 │   │   │   │   └── OrderCommandResponse.cs
+│   │   │   └── Program.cs
+│   │   ├── AI.Processor/          # AI Event Consumer Worker
+│   │   │   ├── Services/          # Ollama & Qdrant services
+│   │   │   │   ├── IOllamaService.cs
+│   │   │   │   ├── OllamaService.cs
+│   │   │   │   ├── IQdrantService.cs
+│   │   │   │   └── QdrantService.cs
+│   │   │   ├── Consumers/         # MassTransit Event Consumers
+│   │   │   │   ├── OrderCreatedConsumer.cs
+│   │   │   │   ├── OrderStatusChangedConsumer.cs
+│   │   │   │   ├── OrderShippedConsumer.cs
+│   │   │   │   ├── OrderDeliveredConsumer.cs
+│   │   │   │   ├── OrderCancelledConsumer.cs
+│   │   │   │   └── OrderCompletedConsumer.cs
 │   │   │   └── Program.cs
 │   │   ├── Invoicing.Api/
 │   │   └── Customers.Api/
