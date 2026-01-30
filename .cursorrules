@@ -1,0 +1,101 @@
+# Cursor Rules - Distributed Playground
+
+## Project Context
+
+This is a .NET 9 distributed system playground for AI exploration with:
+- Microservices architecture (Ordering, Invoicing, Customers, AI.Processor)
+- Message-driven communication (MassTransit + RabbitMQ)
+- RAG (Retrieval-Augmented Generation) with Qdrant + Ollama
+- Angular 17 frontend
+- PostgreSQL database with EF Core
+- Distributed tracing with OpenTelemetry + Jaeger
+
+## Key Files
+
+- `CONTEXT.md` - Detailed session history and decisions
+- `README.md` - Project documentation
+- `infra/docker-compose.yml` - Infrastructure setup
+- `src/Services/Ordering.Api/` - Main bounded context
+- `src/Services/AI.Processor/` - AI/RAG processing service
+- `src/Frontend/ordering-web/` - Angular frontend
+
+## Code Conventions
+
+### .NET
+- Use Minimal APIs for REST endpoints
+- Use records for DTOs
+- Domain entities in `Domain/` folder
+- Infrastructure (DbContext, repositories) in `Infrastructure/` folder
+- MassTransit consumers in `Consumers/` folder
+- Services in `Services/` folder
+
+### Naming
+- Commands: verb + noun (CreateOrder, ShipOrder)
+- Events: noun + past tense (OrderCreated, OrderShipped)
+- Consumers: EventName + Consumer (OrderCreatedConsumer)
+- Endpoints: resource + Endpoints (OrderEndpoints)
+
+### Database
+- PostgreSQL with schema per bounded context
+- Schema name matches service (e.g., `ordering` for Ordering.Api)
+- EF Core migrations
+
+## Important Constraints
+
+1. **Ollama Timeout**: Set to 10 minutes due to slow inference. Config in `appsettings.json` → `Ollama:TimeoutMinutes`
+
+2. **RAG Pattern**: The `/api/ai/chat` endpoint must:
+   - Generate embedding for user question
+   - Search Qdrant for relevant orders
+   - Pass results as context to Ollama
+   - Never respond without checking the database
+
+3. **Angular Sync**: Keep Angular frontend in sync when modifying Ordering bounded context
+
+4. **Git Commits**: Make a commit after each significant change
+
+## Common Commands
+
+```bash
+# Start infrastructure
+cd infra && docker-compose up -d
+
+# Run Ordering.Api
+dotnet run --project src/Services/Ordering.Api --urls "http://localhost:5001"
+
+# Run AI.Processor
+dotnet run --project src/Services/AI.Processor --urls "http://localhost:5010"
+
+# Run Angular frontend
+cd src/Frontend/ordering-web && npm start
+
+# Generate test orders
+dotnet run --project src/Tools/OrderSimulator -- -n 20 -w false
+
+# Reprocess error queue messages (PowerShell)
+# Use RabbitMQ Management API at http://localhost:15672
+```
+
+## Ports
+
+| Service | Port |
+|---------|------|
+| Ordering.Api | 5001 |
+| Invoicing.Api | 5002 |
+| Customers.Api | 5003 |
+| AI.Processor | 5010 |
+| Angular | 4200 |
+| PostgreSQL | 5432 |
+| RabbitMQ | 5672, 15672 |
+| Qdrant | 6333, 6334 |
+| Ollama | 11434 |
+| Jaeger | 16686, 4317 |
+
+## When Making Changes
+
+1. Read `CONTEXT.md` for full project history
+2. Check existing patterns in similar files
+3. Update `README.md` if adding new features
+4. Update `CONTEXT.md` with significant decisions
+5. Keep Angular frontend in sync with backend changes
+6. Commit after each logical change
