@@ -1,3 +1,7 @@
+# ===========================================
+# .NET / C#
+# ===========================================
+
 # Build results
 [Dd]ebug/
 [Rr]elease/
@@ -11,26 +15,7 @@ bld/
 [Oo]bj/
 [Ll]og/
 [Ll]ogs/
-
-# Visual Studio
-.vs/
-*.user
-*.userosscache
-*.sln.docstates
-*.suo
-
-# Rider
-.idea/
-
-# VS Code
-.vscode/
-
-# User-specific files
-*.rsuser
-*.suo
-*.user
-*.userosscache
-*.sln.docstates
+[Pp]ublish/
 
 # NuGet
 *.nupkg
@@ -41,14 +26,15 @@ bld/
 *.nuget.targets
 project.lock.json
 
-# Build server
+# Build artifacts
 project.json
 project.lock.json
 project.fragment.lock.json
 artifacts/
 
-# .NET Core
+# .NET specific
 *.dotCover
+BenchmarkDotNet.Artifacts/
 
 # StyleCop
 StyleCopReport.xml
@@ -59,28 +45,84 @@ StyleCopReport.xml
 *.trx
 *.Coverage
 *.coveragexml
+coverage/
+TestResults/
 
-# Entity Framework Migrations
+# Entity Framework
 **/Migrations/*.Designer.cs
+
+# ===========================================
+# IDE / Editor
+# ===========================================
+
+# Visual Studio
+.vs/
+*.user
+*.userosscache
+*.sln.docstates
+*.suo
+*.rsuser
+
+# Visual Studio Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# JetBrains Rider
+.idea/
+*.DotSettings.user
+
+# Cursor
+.cursor/
+
+# ===========================================
+# OS Generated
+# ===========================================
 
 # Windows
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+$RECYCLE.BIN/
 
 # macOS
 .DS_Store
 .AppleDouble
 .LSOverride
+._*
 
+# Linux
+*~
+
+# ===========================================
 # Docker
-**/docker-compose.override.yml
+# ===========================================
 
-# Environment files
+**/docker-compose.override.yml
+**/docker-compose.local.yml
+
+# ===========================================
+# Environment / Secrets
+# ===========================================
+
 .env
 .env.*
 !.env.example
-
-# Secrets
 **/secrets/
 appsettings.*.local.json
+appsettings.Local.json
+
+# ===========================================
+# Miscellaneous
+# ===========================================
+
+# Temp files
+*.tmp
+*.temp
+*.bak
+*.swp
+
+# Office temp files
+~$*
