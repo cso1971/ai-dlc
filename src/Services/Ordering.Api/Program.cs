@@ -2,7 +2,9 @@ using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using Ordering.Api.Endpoints;
 using Ordering.Api.Infrastructure;
+using Ordering.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,6 +19,12 @@ var serviceName = configuration["OpenTelemetry:ServiceName"] ?? "Ordering.Api";
 // ===========================================
 builder.Services.AddDbContext<OrderingDbContext>(options =>
     options.UseNpgsql(configuration.GetConnectionString("PostgreSQL")));
+
+// ===========================================
+// Application Services
+// ===========================================
+builder.Services.AddScoped<IOrderRepository, OrderRepository>();
+builder.Services.AddScoped<OrderingService>();
 
 // ===========================================
 // MassTransit + RabbitMQ
@@ -79,12 +87,10 @@ app.UseHttpsRedirection();
 // Health check endpoint
 app.MapHealthChecks("/health");
 
-// Sample endpoint - replace with your domain endpoints
+// Service info endpoint
 app.MapGet("/", () => Results.Ok(new { Service = serviceName, Status = "Running" }));
 
-app.MapGet("/api/orders", () =>
-{
-    return Results.Ok(new[] { new { Id = 1, Description = "Sample Order" } });
-});
+// Order REST API
+app.MapOrderEndpoints();
 
 app.Run();
