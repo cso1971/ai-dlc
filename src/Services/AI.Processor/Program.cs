@@ -1,14 +1,32 @@
 using AI.Processor.Consumers;
+using AI.Processor.Endpoints;
 using AI.Processor.Services;
 using MassTransit;
+using Microsoft.OpenApi.Models;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 
-var builder = Host.CreateApplicationBuilder(args);
+var builder = WebApplication.CreateBuilder(args);
 
 // ===== Services =====
 builder.Services.AddSingleton<IOllamaService, OllamaService>();
 builder.Services.AddSingleton<IQdrantService, QdrantService>();
+
+// ===== Swagger/OpenAPI =====
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "AI Processor API",
+        Version = "v1",
+        Description = "REST API for AI-powered text processing using Ollama LLM and Qdrant vector database",
+        Contact = new OpenApiContact
+        {
+            Name = "Distributed Playground"
+        }
+    });
+});
 
 // ===== MassTransit with RabbitMQ =====
 builder.Services.AddMassTransit(x =>
@@ -47,6 +65,7 @@ builder.Services.AddOpenTelemetry()
     .WithTracing(tracing => tracing
         .AddSource(serviceName)
         .AddSource("MassTransit")
+        .AddAspNetCoreInstrumentation()
         .AddHttpClientInstrumentation()
         .AddOtlpExporter(options =>
         {
@@ -59,11 +78,39 @@ builder.Services.AddHealthChecks()
         rabbitConnectionString: $"amqp://{builder.Configuration["RabbitMQ:Username"]}:{builder.Configuration["RabbitMQ:Password"]}@{builder.Configuration["RabbitMQ:Host"]}:5672",
         name: "rabbitmq");
 
-var host = builder.Build();
+// ===== CORS =====
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
 
-// Log startup information
-var logger = host.Services.GetRequiredService<ILoggerFactory>().CreateLogger("AI.Processor");
+var app = builder.Build();
+
+// ===== Middleware Pipeline =====
+
+// Swagger UI (available in all environments for this playground)
+app.UseSwagger();
+app.UseSwaggerUI(options =>
+{
+    options.SwaggerEndpoint("/swagger/v1/swagger.json", "AI Processor API v1");
+    options.RoutePrefix = "swagger";
+});
+
+app.UseCors("AllowAll");
+
+// ===== Map Endpoints =====
+app.MapAiEndpoints();
+app.MapHealthChecks("/health");
+
+// ===== Startup Logging =====
+var logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("AI.Processor");
 logger.LogInformation("AI.Processor starting...");
+logger.LogInformation("Swagger UI available at: /swagger");
 logger.LogInformation("OpenTelemetry configured with service name: {ServiceName}", serviceName);
 logger.LogInformation("OpenTelemetry exporter endpoint: {Endpoint}", otelEndpoint);
 logger.LogInformation("RabbitMQ host: {Host}", builder.Configuration["RabbitMQ:Host"]);
@@ -72,4 +119,4 @@ logger.LogInformation("Qdrant endpoint: {Host}:{Port}",
     builder.Configuration["Qdrant:Host"], 
     builder.Configuration["Qdrant:Port"]);
 
-host.Run();
+app.Run();

@@ -92,6 +92,14 @@ dotnet run --project src/Services/Customers.Api
 | Ollama API | http://localhost:11434 | - |
 | Jaeger UI | http://localhost:16686 | - |
 
+## Service URLs
+
+| Service | Swagger | API Base |
+|---------|---------|----------|
+| Ordering API | http://localhost:5001/swagger | http://localhost:5001/api |
+| AI Processor | http://localhost:5010/swagger | http://localhost:5010/api |
+| Angular Frontend | http://localhost:4200 | - |
+
 ## Ordering API
 
 ### Swagger UI
@@ -177,18 +185,53 @@ CreateOrder ──▶ StartProcessing ──▶ Ship ──▶ Deliver ──▶
 - City, StateOrProvince, PostalCode, CountryCode
 - PhoneNumber, Notes
 
-## AI.Processor (Event Consumer Worker)
+## AI.Processor (AI Service with REST API)
 
-Background worker service that consumes all Ordering events and processes them with AI capabilities.
+Hybrid service combining event-driven processing with REST API for AI capabilities.
+
+### Swagger UI
+
+**URL:** http://localhost:5010/swagger
+
+### REST API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/ai/chat` | Send prompt to Ollama LLM |
+| `POST` | `/api/ai/analyze` | Analyze text with AI |
+| `POST` | `/api/ai/summarize` | Summarize text |
+| `POST` | `/api/ai/embed` | Generate text embedding |
+| `POST` | `/api/ai/embed/batch` | Generate multiple embeddings |
+| `POST` | `/api/ai/search` | Semantic search over orders |
+| `GET` | `/api/ai/info` | Get AI service configuration |
+| `GET` | `/api/ai/health/ollama` | Check Ollama connectivity |
+| `GET` | `/api/ai/health/qdrant` | Check Qdrant connectivity |
+
+### Example: Chat Request
+
+```bash
+curl -X POST http://localhost:5010/api/ai/chat \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "What is machine learning?", "systemPrompt": "You are a helpful assistant."}'
+```
+
+### Example: Semantic Search
+
+```bash
+curl -X POST http://localhost:5010/api/ai/search \
+  -H "Content-Type: application/json" \
+  -d '{"query": "orders shipped to Italy", "limit": 5}'
+```
 
 ### Features
 
+- **REST API**: Full Swagger-documented API for AI interactions
 - **Event Consumption**: Listens to all Ordering domain events via MassTransit/RabbitMQ
 - **LLM Integration**: Uses Ollama for text generation and event analysis
 - **Vector Storage**: Stores order embeddings in Qdrant for semantic search
 - **Distributed Tracing**: Full OpenTelemetry integration with Jaeger
 
-### Consumed Events
+### Event Consumers
 
 | Consumer | Event | Processing |
 |----------|-------|------------|
