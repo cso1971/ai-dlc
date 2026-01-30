@@ -91,11 +91,27 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
+// ===========================================
+// CORS (for Angular frontend)
+// ===========================================
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.WithOrigins("http://localhost:4200")
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
+
 var app = builder.Build();
 
 // ===========================================
 // Middleware Pipeline
 // ===========================================
+
+// CORS
+app.UseCors("AllowFrontend");
 
 // Swagger UI (available in all environments for playground)
 app.UseSwagger();
