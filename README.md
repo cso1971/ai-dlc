@@ -98,6 +98,25 @@ dotnet run --project src/Services/Customers.Api
 | `POST` | `/api/orders/{id}/invoice` | Mark as invoiced |
 | `POST` | `/api/orders/{id}/cancel` | Cancel order |
 
+### MassTransit Consumers (RabbitMQ)
+
+Order commands can also be sent via RabbitMQ message bus. Each command has a dedicated consumer:
+
+| Consumer | Command | Queue |
+|----------|---------|-------|
+| `CreateOrderConsumer` | `CreateOrder` | `create-order` |
+| `StartOrderProcessingConsumer` | `StartOrderProcessing` | `start-order-processing` |
+| `ShipOrderConsumer` | `ShipOrder` | `ship-order` |
+| `DeliverOrderConsumer` | `DeliverOrder` | `deliver-order` |
+| `InvoiceOrderConsumer` | `InvoiceOrder` | `invoice-order` |
+| `CancelOrderConsumer` | `CancelOrder` | `cancel-order` |
+
+All consumers:
+- Use `OrderingService` for business logic (same as REST)
+- Support request/response pattern with `OrderCommandResponse`
+- Publish domain events on success
+- Return error messages on failure
+
 ### Order Workflow
 
 ```
@@ -165,6 +184,14 @@ DistributedPlayground/
 │   │   │   ├── Endpoints/        # REST API
 │   │   │   │   ├── OrderEndpoints.cs
 │   │   │   │   └── OrderDtos.cs
+│   │   │   ├── Consumers/        # MassTransit Consumers
+│   │   │   │   ├── CreateOrderConsumer.cs
+│   │   │   │   ├── StartOrderProcessingConsumer.cs
+│   │   │   │   ├── ShipOrderConsumer.cs
+│   │   │   │   ├── DeliverOrderConsumer.cs
+│   │   │   │   ├── InvoiceOrderConsumer.cs
+│   │   │   │   ├── CancelOrderConsumer.cs
+│   │   │   │   └── OrderCommandResponse.cs
 │   │   │   └── Program.cs
 │   │   ├── Invoicing.Api/
 │   │   └── Customers.Api/
