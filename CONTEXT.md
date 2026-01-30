@@ -41,6 +41,14 @@
 
 ---
 
+## Sviluppo assistito
+
+### Ad ogni modifica che chiedo e applichi 
+- Esegui il commit sul branch corrente mettendo nel commento i dettagli delle modifiche
+- Tieni aggiornato il file README.md 
+- Tieni aggiornato il file CONTEXT.md
+
+
 ## 🔄 Flusso Dati
 
 ```
@@ -88,6 +96,7 @@
 - `/api/ai/chat` cerca prima in Qdrant
 - Passa i risultati come contesto a Ollama
 - Risponde basandosi su dati reali, non conoscenza generica
+- **MaxResults: 100** (default) - numero massimo di ordini usati come contesto
 
 ### 4. **Embedding vs Analisi AI**
 - **Embedding** (nomic-embed-text): ~200ms, necessario per RAG
