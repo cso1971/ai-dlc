@@ -342,6 +342,8 @@ DistributedPlayground/
 │   │   │   └── Program.cs
 │   │   ├── Invoicing.Api/
 │   │   └── Customers.Api/
+│   ├── Tools/
+│   │   └── OrderSimulator/      # CLI tool for test data generation
 │   └── Shared/
 │       ├── Contracts/            # MassTransit message types
 │       │   ├── Commands/
@@ -521,6 +523,52 @@ docker-compose --profile infra down
 # To also remove volumes (data)
 docker-compose --profile infra down -v
 ```
+
+## Order Simulator Tool
+
+Console application to generate test orders and simulate workflow transitions.
+
+### Usage
+
+```powershell
+# Generate 10 orders with workflow simulation (default)
+dotnet run --project src/Tools/OrderSimulator
+
+# Generate 50 orders without workflow
+dotnet run --project src/Tools/OrderSimulator -- -n 50 -w false
+
+# Generate 20 orders with 1 second delay between commands
+dotnet run --project src/Tools/OrderSimulator -- -n 20 -d 1000
+
+# Show help
+dotnet run --project src/Tools/OrderSimulator -- --help
+```
+
+### Options
+
+| Option | Alias | Description | Default |
+|--------|-------|-------------|---------|
+| `--orders` | `-n` | Number of orders to create | 10 |
+| `--simulate-workflow` | `-w` | Simulate status transitions | true |
+| `--delay` | `-d` | Delay between commands (ms) | 500 |
+| `--rabbit-host` | | RabbitMQ host | localhost |
+| `--rabbit-user` | | RabbitMQ username | playground |
+| `--rabbit-password` | | RabbitMQ password | playground_pwd |
+
+### Simulation Phases
+
+1. **Create Orders**: Generates random orders with fake customer data, products, addresses
+2. **Fetch Orders**: Gets created order IDs from Ordering API
+3. **Workflow Transitions**: Randomly applies:
+   - Start Processing
+   - Ship (with random carrier and tracking)
+   - Deliver
+   - Invoice
+   - Cancel (10-20% of orders)
+
+### Prerequisites
+
+Requires Ordering.Api to be running on `http://localhost:5001` for workflow simulation.
 
 ## Development Notes
 
