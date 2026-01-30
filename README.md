@@ -246,6 +246,9 @@ curl -X POST http://localhost:5010/api/ai/search \
 
 ```json
 {
+  "OrderingApi": {
+    "BaseUrl": "http://localhost:5001"
+  },
   "Ollama": {
     "BaseUrl": "http://localhost:11434",
     "Model": "llama3.2",
@@ -257,6 +260,34 @@ curl -X POST http://localhost:5010/api/ai/search \
     "CollectionName": "orders"
   }
 }
+```
+
+### RAG Architecture
+
+When an event is received, AI.Processor:
+1. **Fetches complete order** from Ordering API via HTTP (`GET /api/orders/{id}`)
+2. **Generates text representation** of the order with all details
+3. **Creates embedding** using `nomic-embed-text` model
+4. **Stores in Qdrant** with rich payload (order ID, customer, products, financials, etc.)
+5. **Analyzes with LLM** for business insights
+
+```
+┌─────────────────┐     Event      ┌─────────────────┐
+│  Ordering.Api   │ ────────────▶  │  AI.Processor   │
+└─────────────────┘                └────────┬────────┘
+        ▲                                   │
+        │ GET /api/orders/{id}              │ 1. Fetch order details
+        └───────────────────────────────────┘
+                                            │
+                                            ▼
+                                   ┌─────────────────┐
+                                   │     Ollama      │ 2. Generate embedding
+                                   └─────────────────┘
+                                            │
+                                            ▼
+                                   ┌─────────────────┐
+                                   │     Qdrant      │ 3. Store for RAG
+                                   └─────────────────┘
 ```
 
 ### Services

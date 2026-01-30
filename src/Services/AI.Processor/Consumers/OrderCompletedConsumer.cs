@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AI.Processor.Clients;
 using AI.Processor.Services;
 using Contracts.Events.Ordering;
 using MassTransit;
@@ -10,15 +11,18 @@ public class OrderCompletedConsumer : IConsumer<OrderCompleted>
 {
     private readonly IOllamaService _ollamaService;
     private readonly IQdrantService _qdrantService;
+    private readonly IOrderApiClient _orderApiClient;
     private readonly ILogger<OrderCompletedConsumer> _logger;
 
     public OrderCompletedConsumer(
         IOllamaService ollamaService,
         IQdrantService qdrantService,
+        IOrderApiClient orderApiClient,
         ILogger<OrderCompletedConsumer> logger)
     {
         _ollamaService = ollamaService;
         _qdrantService = qdrantService;
+        _orderApiClient = orderApiClient;
         _logger = logger;
     }
 
@@ -30,38 +34,104 @@ public class OrderCompletedConsumer : IConsumer<OrderCompleted>
 
         try
         {
-            // Create completion details for embedding
-            var completionDetails = $"""
-                Order completed (invoiced) at {message.CompletedAt}
+            // Fetch complete order data
+            var order = await _orderApiClient.GetOrderAsync(message.OrderId, context.CancellationToken);
+            
+            if (order == null)
+            {
+                _logger.LogWarning("Could not fetch order {OrderId} from API", message.OrderId);
+                return;
+            }
+
+            // Calculate order lifecycle metrics
+            var totalCycleTime = (message.CompletedAt - order.CreatedAt).TotalDays;
+            var deliveryTime = order.ShippedAt.HasValue && order.DeliveredAt.HasValue
+                ? (order.DeliveredAt.Value - order.ShippedAt.Value).TotalDays
+                : (double?)null;
+
+            // Generate embedding with completion/summary context
+            var completionText = $"""
+                {order.ToTextForEmbedding()}
+                
+                ORDER COMPLETION SUMMARY:
+                Completed At: {message.CompletedAt:yyyy-MM-dd HH:mm}
                 Invoice ID: {message.InvoiceId}
-                Total Amount: {message.TotalAmount:F2}
+                Final Amount: {message.TotalAmount:F2} {order.CurrencyCode}
+                
+                Order Lifecycle Metrics:
+                Total Cycle Time: {totalCycleTime:F1} days (from creation to invoice)
+                Transit Time: {(deliveryTime.HasValue ? $"{deliveryTime:F1} days" : "N/A")}
+                
+                Customer Experience:
+                Priority: {order.Priority}
+                Delivery Notes: {order.DeliveryNotes ?? "None"}
                 """;
 
-            var embedding = await _ollamaService.GenerateEmbeddingAsync(completionDetails, context.CancellationToken);
+            var embedding = await _ollamaService.GenerateEmbeddingAsync(completionText, context.CancellationToken);
 
-            var payload = new Dictionary<string, object>
-            {
-                ["status"] = "Completed",
-                ["completedAt"] = message.CompletedAt.ToString("O"),
-                ["invoiceId"] = message.InvoiceId?.ToString() ?? "",
-                ["totalAmount"] = message.TotalAmount
-            };
+            // Build payload
+            var payload = BuildOrderPayload(order, "Completed");
+            payload["completedAt"] = message.CompletedAt.ToString("O");
+            payload["invoiceId"] = message.InvoiceId?.ToString() ?? "";
+            payload["finalAmount"] = (double)message.TotalAmount;
+            payload["totalCycleDays"] = totalCycleTime;
+            if (deliveryTime.HasValue)
+                payload["transitDays"] = deliveryTime.Value;
 
             await _qdrantService.UpsertOrderAsync(message.OrderId, embedding, payload, context.CancellationToken);
 
-            // Generate order summary
-            var summary = await _ollamaService.SummarizeOrderAsync(
-                message.OrderId,
-                completionDetails,
-                context.CancellationToken);
+            // Generate comprehensive order summary
+            var summaryPrompt = $"""
+                Generate a comprehensive summary of this completed order for business records:
+                
+                {completionText}
+                
+                Include:
+                1. Order overview
+                2. Customer and shipping details
+                3. Product summary
+                4. Timeline analysis
+                5. Any notable aspects
+                """;
+            
+            var summary = await _ollamaService.GenerateCompletionAsync(summaryPrompt, context.CancellationToken);
 
-            _logger.LogInformation("Order {OrderId} completion processed. Summary: {Summary}", 
-                message.OrderId, summary.Substring(0, Math.Min(200, summary.Length)));
+            _logger.LogInformation("Order {OrderId} COMPLETED. Total: {Amount} {Currency}. Cycle time: {CycleTime} days. Summary: {Summary}", 
+                message.OrderId, message.TotalAmount, order.CurrencyCode, totalCycleTime,
+                summary.Substring(0, Math.Min(300, summary.Length)));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error processing OrderCompleted event for Order {OrderId}", message.OrderId);
             throw;
         }
+    }
+
+    private static Dictionary<string, object> BuildOrderPayload(OrderResponse order, string eventType)
+    {
+        return new Dictionary<string, object>
+        {
+            ["orderId"] = order.Id.ToString(),
+            ["customerId"] = order.CustomerId.ToString(),
+            ["customerReference"] = order.CustomerReference ?? "",
+            ["status"] = order.Status.ToString(),
+            ["eventType"] = eventType,
+            ["currencyCode"] = order.CurrencyCode,
+            ["grandTotal"] = (double)order.GrandTotal,
+            ["subtotal"] = (double)order.Subtotal,
+            ["totalTax"] = (double)order.TotalTax,
+            ["priority"] = order.Priority,
+            ["lineCount"] = order.Lines.Count,
+            ["productCodes"] = string.Join(", ", order.Lines.Select(l => l.ProductCode)),
+            ["shippingCity"] = order.ShippingAddress?.City ?? "",
+            ["shippingCountry"] = order.ShippingAddress?.CountryCode ?? "",
+            ["recipientName"] = order.ShippingAddress?.RecipientName ?? "",
+            ["trackingNumber"] = order.TrackingNumber ?? "",
+            ["carrier"] = order.Carrier ?? "",
+            ["createdAt"] = order.CreatedAt.ToString("O"),
+            ["shippedAt"] = order.ShippedAt?.ToString("O") ?? "",
+            ["deliveredAt"] = order.DeliveredAt?.ToString("O") ?? "",
+            ["orderText"] = order.ToTextForEmbedding()
+        };
     }
 }

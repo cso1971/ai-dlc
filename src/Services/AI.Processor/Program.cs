@@ -1,3 +1,4 @@
+using AI.Processor.Clients;
 using AI.Processor.Consumers;
 using AI.Processor.Endpoints;
 using AI.Processor.Services;
@@ -5,12 +6,25 @@ using MassTransit;
 using Microsoft.OpenApi.Models;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using Polly;
+using Polly.Extensions.Http;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // ===== Services =====
 builder.Services.AddSingleton<IOllamaService, OllamaService>();
 builder.Services.AddSingleton<IQdrantService, QdrantService>();
+
+// ===== Order API Client with Polly =====
+builder.Services.AddHttpClient<IOrderApiClient, OrderApiClient>(client =>
+{
+    var baseUrl = builder.Configuration["OrderingApi:BaseUrl"] ?? "http://localhost:5001";
+    client.BaseAddress = new Uri(baseUrl);
+    client.DefaultRequestHeaders.Add("Accept", "application/json");
+})
+.AddPolicyHandler(HttpPolicyExtensions
+    .HandleTransientHttpError()
+    .WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt))));
 
 // ===== Swagger/OpenAPI =====
 builder.Services.AddEndpointsApiExplorer();

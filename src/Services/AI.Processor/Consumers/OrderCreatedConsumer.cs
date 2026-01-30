@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AI.Processor.Clients;
 using AI.Processor.Services;
 using Contracts.Events.Ordering;
 using MassTransit;
@@ -10,15 +11,18 @@ public class OrderCreatedConsumer : IConsumer<OrderCreated>
 {
     private readonly IOllamaService _ollamaService;
     private readonly IQdrantService _qdrantService;
+    private readonly IOrderApiClient _orderApiClient;
     private readonly ILogger<OrderCreatedConsumer> _logger;
 
     public OrderCreatedConsumer(
         IOllamaService ollamaService,
         IQdrantService qdrantService,
+        IOrderApiClient orderApiClient,
         ILogger<OrderCreatedConsumer> logger)
     {
         _ollamaService = ollamaService;
         _qdrantService = qdrantService;
+        _orderApiClient = orderApiClient;
         _logger = logger;
     }
 
@@ -29,45 +33,87 @@ public class OrderCreatedConsumer : IConsumer<OrderCreated>
 
         try
         {
-            // Create order details for embedding
-            var orderDetails = $"""
-                Customer: {message.CustomerId}
-                Currency: {message.CurrencyCode}
-                Items: {message.Lines?.Count ?? 0}
-                Total Value: {message.Lines?.Sum(l => l.Quantity * l.UnitPrice) ?? 0:F2}
-                Shipping: {message.ShippingAddress?.City}, {message.ShippingAddress?.CountryCode}
-                """;
+            // Fetch complete order data from Ordering API
+            var order = await _orderApiClient.GetOrderAsync(message.OrderId, context.CancellationToken);
+            
+            if (order == null)
+            {
+                _logger.LogWarning("Could not fetch order {OrderId} from API, using event data only", message.OrderId);
+                return;
+            }
 
-            // Generate embedding for the order
-            var embedding = await _ollamaService.GenerateEmbeddingAsync(orderDetails, context.CancellationToken);
+            // Generate embedding using the complete order text
+            var orderText = order.ToTextForEmbedding();
+            var embedding = await _ollamaService.GenerateEmbeddingAsync(orderText, context.CancellationToken);
+
+            // Build rich payload with complete order information
+            var payload = BuildOrderPayload(order, "Created");
 
             // Store in Qdrant
-            var payload = new Dictionary<string, object>
-            {
-                ["customerId"] = message.CustomerId.ToString(),
-                ["status"] = "Created",
-                ["currencyCode"] = message.CurrencyCode ?? "USD",
-                ["itemCount"] = message.Lines?.Count ?? 0,
-                ["createdAt"] = message.CreatedAt.ToString("O"),
-                ["city"] = message.ShippingAddress?.City ?? "",
-                ["country"] = message.ShippingAddress?.CountryCode ?? ""
-            };
-
             await _qdrantService.UpsertOrderAsync(message.OrderId, embedding, payload, context.CancellationToken);
 
             // Analyze with LLM
-            var analysis = await _ollamaService.AnalyzeOrderEventAsync(
-                "OrderCreated",
-                JsonSerializer.Serialize(message),
-                context.CancellationToken);
+            var analysisPrompt = $"""
+                Analyze this new order and provide business insights:
+                
+                {orderText}
+                
+                Consider: customer value, product mix, shipping complexity, priority handling.
+                """;
+            
+            var analysis = await _ollamaService.GenerateCompletionAsync(analysisPrompt, context.CancellationToken);
 
-            _logger.LogInformation("Order {OrderId} processed and stored. AI Analysis: {Analysis}", 
-                message.OrderId, analysis.Substring(0, Math.Min(200, analysis.Length)));
+            _logger.LogInformation("Order {OrderId} processed and stored in RAG. Total: {GrandTotal} {Currency}. Analysis: {Analysis}", 
+                message.OrderId, order.GrandTotal, order.CurrencyCode, 
+                analysis.Substring(0, Math.Min(200, analysis.Length)));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error processing OrderCreated event for Order {OrderId}", message.OrderId);
             throw;
         }
+    }
+
+    private static Dictionary<string, object> BuildOrderPayload(OrderResponse order, string eventType)
+    {
+        return new Dictionary<string, object>
+        {
+            // Identifiers
+            ["orderId"] = order.Id.ToString(),
+            ["customerId"] = order.CustomerId.ToString(),
+            ["customerReference"] = order.CustomerReference ?? "",
+            
+            // Status & Event
+            ["status"] = order.Status.ToString(),
+            ["eventType"] = eventType,
+            
+            // Financial
+            ["currencyCode"] = order.CurrencyCode,
+            ["subtotal"] = (double)order.Subtotal,
+            ["totalTax"] = (double)order.TotalTax,
+            ["grandTotal"] = (double)order.GrandTotal,
+            
+            // Order details
+            ["priority"] = order.Priority,
+            ["lineCount"] = order.Lines.Count,
+            ["productCodes"] = string.Join(", ", order.Lines.Select(l => l.ProductCode)),
+            
+            // Shipping
+            ["shippingCity"] = order.ShippingAddress?.City ?? "",
+            ["shippingCountry"] = order.ShippingAddress?.CountryCode ?? "",
+            ["shippingMethod"] = order.ShippingMethod ?? "",
+            ["recipientName"] = order.ShippingAddress?.RecipientName ?? "",
+            
+            // Dates
+            ["createdAt"] = order.CreatedAt.ToString("O"),
+            ["requestedDeliveryDate"] = order.RequestedDeliveryDate?.ToString("O") ?? "",
+            
+            // Tracking
+            ["trackingNumber"] = order.TrackingNumber ?? "",
+            ["carrier"] = order.Carrier ?? "",
+            
+            // Full text for search
+            ["orderText"] = order.ToTextForEmbedding()
+        };
     }
 }
