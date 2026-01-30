@@ -1,0 +1,236 @@
+<div class="order-detail-container">
+  <header class="page-header">
+    <a routerLink="/orders" class="back-link">← Back to Orders</a>
+    <h1 *ngIf="order">Order Details</h1>
+  </header>
+
+  <div *ngIf="loading" class="loading">
+    <div class="spinner"></div>
+    <p>Loading order...</p>
+  </div>
+
+  <div *ngIf="error" class="error-message">
+    <p>{{ error }}</p>
+    <a routerLink="/orders" class="btn btn-secondary">Back to Orders</a>
+  </div>
+
+  <div *ngIf="order && !loading" class="order-content">
+    <!-- Status & Actions -->
+    <div class="status-card">
+      <div class="status-info">
+        <span class="status-badge" [style.background-color]="getStatusColor(order.status)">
+          {{ getStatusLabel(order.status) }}
+        </span>
+        <span class="order-id">{{ order.id }}</span>
+      </div>
+      <div class="actions">
+        <button *ngIf="canStartProcessing()" (click)="startProcessing()" [disabled]="actionLoading" class="btn btn-action btn-start">
+          Start Processing
+        </button>
+        <button *ngIf="canShip()" (click)="openShipModal()" [disabled]="actionLoading" class="btn btn-action btn-ship">
+          Ship Order
+        </button>
+        <button *ngIf="canDeliver()" (click)="openDeliverModal()" [disabled]="actionLoading" class="btn btn-action btn-deliver">
+          Mark Delivered
+        </button>
+        <button *ngIf="canInvoice()" (click)="invoiceOrder()" [disabled]="actionLoading" class="btn btn-action btn-invoice">
+          Mark Invoiced
+        </button>
+        <button *ngIf="canCancel()" (click)="openCancelModal()" [disabled]="actionLoading" class="btn btn-action btn-cancel">
+          Cancel Order
+        </button>
+      </div>
+    </div>
+
+    <!-- Order Info Grid -->
+    <div class="info-grid">
+      <!-- Header Info -->
+      <div class="info-card">
+        <h3>Order Information</h3>
+        <div class="info-row">
+          <span class="label">Customer ID</span>
+          <span class="value">{{ order.customerId }}</span>
+        </div>
+        <div class="info-row">
+          <span class="label">Customer Ref</span>
+          <span class="value">{{ order.customerReference || '-' }}</span>
+        </div>
+        <div class="info-row">
+          <span class="label">Priority</span>
+          <span class="value">{{ order.priority }}</span>
+        </div>
+        <div class="info-row">
+          <span class="label">Currency</span>
+          <span class="value">{{ order.currencyCode }}</span>
+        </div>
+        <div class="info-row">
+          <span class="label">Created</span>
+          <span class="value">{{ formatDate(order.createdAt) }}</span>
+        </div>
+        <div class="info-row" *ngIf="order.updatedAt">
+          <span class="label">Updated</span>
+          <span class="value">{{ formatDate(order.updatedAt) }}</span>
+        </div>
+      </div>
+
+      <!-- Shipping Info -->
+      <div class="info-card" *ngIf="order.shippingAddress">
+        <h3>Shipping Address</h3>
+        <div class="address-block">
+          <p><strong>{{ order.shippingAddress.recipientName }}</strong></p>
+          <p>{{ order.shippingAddress.addressLine1 }}</p>
+          <p *ngIf="order.shippingAddress.addressLine2">{{ order.shippingAddress.addressLine2 }}</p>
+          <p>{{ order.shippingAddress.postalCode }} {{ order.shippingAddress.city }}</p>
+          <p *ngIf="order.shippingAddress.stateOrProvince">{{ order.shippingAddress.stateOrProvince }}</p>
+          <p>{{ order.shippingAddress.countryCode }}</p>
+          <p *ngIf="order.shippingAddress.phoneNumber">Tel: {{ order.shippingAddress.phoneNumber }}</p>
+        </div>
+      </div>
+
+      <!-- Shipping Status -->
+      <div class="info-card" *ngIf="order.status >= OrderStatus.Shipped">
+        <h3>Shipping Details</h3>
+        <div class="info-row" *ngIf="order.trackingNumber">
+          <span class="label">Tracking #</span>
+          <span class="value tracking">{{ order.trackingNumber }}</span>
+        </div>
+        <div class="info-row" *ngIf="order.carrier">
+          <span class="label">Carrier</span>
+          <span class="value">{{ order.carrier }}</span>
+        </div>
+        <div class="info-row" *ngIf="order.shippedAt">
+          <span class="label">Shipped At</span>
+          <span class="value">{{ formatDate(order.shippedAt) }}</span>
+        </div>
+        <div class="info-row" *ngIf="order.deliveredAt">
+          <span class="label">Delivered At</span>
+          <span class="value">{{ formatDate(order.deliveredAt) }}</span>
+        </div>
+        <div class="info-row" *ngIf="order.receivedBy">
+          <span class="label">Received By</span>
+          <span class="value">{{ order.receivedBy }}</span>
+        </div>
+      </div>
+
+      <!-- Cancellation Info -->
+      <div class="info-card warning" *ngIf="order.status === OrderStatus.Cancelled">
+        <h3>Cancellation</h3>
+        <div class="info-row">
+          <span class="label">Reason</span>
+          <span class="value">{{ order.cancellationReason }}</span>
+        </div>
+        <div class="info-row">
+          <span class="label">Cancelled At</span>
+          <span class="value">{{ formatDate(order.cancelledAt) }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Order Lines -->
+    <div class="lines-card">
+      <h3>Order Lines</h3>
+      <table class="lines-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Product</th>
+            <th>Description</th>
+            <th class="text-right">Qty</th>
+            <th>UoM</th>
+            <th class="text-right">Unit Price</th>
+            <th class="text-right">Discount</th>
+            <th class="text-right">Tax</th>
+            <th class="text-right">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let line of order.lines">
+            <td>{{ line.lineNumber }}</td>
+            <td class="product-code">{{ line.productCode }}</td>
+            <td>{{ line.description }}</td>
+            <td class="text-right">{{ line.quantity }}</td>
+            <td>{{ line.unitOfMeasure }}</td>
+            <td class="text-right">{{ formatCurrency(line.unitPrice) }}</td>
+            <td class="text-right">{{ line.discountPercent }}%</td>
+            <td class="text-right">{{ line.taxPercent }}%</td>
+            <td class="text-right font-bold">{{ formatCurrency(line.lineTotalWithTax) }}</td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="7"></td>
+            <td class="text-right">Subtotal</td>
+            <td class="text-right">{{ formatCurrency(order.subtotal) }}</td>
+          </tr>
+          <tr>
+            <td colspan="7"></td>
+            <td class="text-right">Tax</td>
+            <td class="text-right">{{ formatCurrency(order.totalTax) }}</td>
+          </tr>
+          <tr class="grand-total">
+            <td colspan="7"></td>
+            <td class="text-right">Grand Total</td>
+            <td class="text-right">{{ formatCurrency(order.grandTotal) }}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Ship Modal -->
+<div class="modal-overlay" *ngIf="showShipModal" (click)="closeModals()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <h2>Ship Order</h2>
+    <div class="form-group">
+      <label>Tracking Number *</label>
+      <input type="text" [(ngModel)]="trackingNumber" placeholder="Enter tracking number" required>
+    </div>
+    <div class="form-group">
+      <label>Carrier</label>
+      <input type="text" [(ngModel)]="carrier" placeholder="e.g., DHL, UPS, FedEx">
+    </div>
+    <div class="form-group">
+      <label>Estimated Delivery Date</label>
+      <input type="date" [(ngModel)]="estimatedDeliveryDate">
+    </div>
+    <div class="modal-actions">
+      <button (click)="closeModals()" class="btn btn-secondary">Cancel</button>
+      <button (click)="shipOrder()" [disabled]="!trackingNumber || actionLoading" class="btn btn-primary">Ship Order</button>
+    </div>
+  </div>
+</div>
+
+<!-- Deliver Modal -->
+<div class="modal-overlay" *ngIf="showDeliverModal" (click)="closeModals()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <h2>Mark as Delivered</h2>
+    <div class="form-group">
+      <label>Received By</label>
+      <input type="text" [(ngModel)]="receivedBy" placeholder="Name of person who received">
+    </div>
+    <div class="form-group">
+      <label>Delivery Notes</label>
+      <textarea [(ngModel)]="deliveryNotes" rows="3" placeholder="Any notes about the delivery"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button (click)="closeModals()" class="btn btn-secondary">Cancel</button>
+      <button (click)="deliverOrder()" [disabled]="actionLoading" class="btn btn-primary">Mark Delivered</button>
+    </div>
+  </div>
+</div>
+
+<!-- Cancel Modal -->
+<div class="modal-overlay" *ngIf="showCancelModal" (click)="closeModals()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <h2>Cancel Order</h2>
+    <div class="form-group">
+      <label>Cancellation Reason *</label>
+      <textarea [(ngModel)]="cancellationReason" rows="3" placeholder="Enter reason for cancellation" required></textarea>
+    </div>
+    <div class="modal-actions">
+      <button (click)="closeModals()" class="btn btn-secondary">Back</button>
+      <button (click)="cancelOrder()" [disabled]="!cancellationReason || actionLoading" class="btn btn-danger">Cancel Order</button>
+    </div>
+  </div>
+</div>

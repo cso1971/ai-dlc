@@ -1,0 +1,22 @@
+<div class="app-container">
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <a routerLink="/" class="logo">
+        <span class="logo-icon">📦</span>
+        <span class="logo-text">Ordering Portal</span>
+      </a>
+    </div>
+    <div class="navbar-menu">
+      <a routerLink="/orders" routerLinkActive="active" class="nav-link">Orders</a>
+      <a routerLink="/orders/new" class="nav-link btn-new">+ New Order</a>
+    </div>
+  </nav>
+
+  <main class="main-content">
+    <router-outlet></router-outlet>
+  </main>
+
+  <footer class="footer">
+    <p>Distributed Playground - Ordering Service</p>
+  </footer>
+</div>

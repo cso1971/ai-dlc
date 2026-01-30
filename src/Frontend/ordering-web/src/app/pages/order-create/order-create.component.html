@@ -1,0 +1,195 @@
+<div class="order-create-container">
+  <header class="page-header">
+    <a routerLink="/orders" class="back-link">← Back to Orders</a>
+    <h1>Create New Order</h1>
+  </header>
+
+  <div *ngIf="error" class="error-message">
+    <p>{{ error }}</p>
+  </div>
+
+  <form (ngSubmit)="submit()" class="order-form">
+    <!-- Order Header -->
+    <div class="form-section">
+      <h2>Order Information</h2>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Customer ID *</label>
+          <input type="text" [(ngModel)]="order.customerId" name="customerId" required readonly>
+        </div>
+        <div class="form-group">
+          <label>Customer Reference</label>
+          <input type="text" [(ngModel)]="order.customerReference" name="customerReference" placeholder="Your reference number">
+        </div>
+        <div class="form-group">
+          <label>Priority (1-5)</label>
+          <select [(ngModel)]="order.priority" name="priority">
+            <option [value]="1">1 - Highest</option>
+            <option [value]="2">2 - High</option>
+            <option [value]="3">3 - Normal</option>
+            <option [value]="4">4 - Low</option>
+            <option [value]="5">5 - Lowest</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Currency</label>
+          <select [(ngModel)]="order.currencyCode" name="currencyCode">
+            <option value="EUR">EUR</option>
+            <option value="USD">USD</option>
+            <option value="GBP">GBP</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Payment Terms</label>
+          <select [(ngModel)]="order.paymentTerms" name="paymentTerms">
+            <option value="COD">Cash on Delivery</option>
+            <option value="NET15">Net 15</option>
+            <option value="NET30">Net 30</option>
+            <option value="NET60">Net 60</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Shipping Method</label>
+          <select [(ngModel)]="order.shippingMethod" name="shippingMethod">
+            <option value="STANDARD">Standard</option>
+            <option value="EXPRESS">Express</option>
+            <option value="OVERNIGHT">Overnight</option>
+          </select>
+        </div>
+        <div class="form-group full-width">
+          <label>Notes</label>
+          <textarea [(ngModel)]="order.notes" name="notes" rows="2" placeholder="Special instructions..."></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Shipping Address -->
+    <div class="form-section">
+      <div class="section-header">
+        <h2>Shipping Address</h2>
+        <label class="checkbox-label">
+          <input type="checkbox" [(ngModel)]="includeShipping" name="includeShipping">
+          Include shipping address
+        </label>
+      </div>
+
+      <div *ngIf="includeShipping" class="form-grid">
+        <div class="form-group">
+          <label>Recipient Name *</label>
+          <input type="text" [(ngModel)]="shippingAddress.recipientName" name="recipientName" required>
+        </div>
+        <div class="form-group">
+          <label>Phone</label>
+          <input type="text" [(ngModel)]="shippingAddress.phoneNumber" name="phoneNumber">
+        </div>
+        <div class="form-group full-width">
+          <label>Address Line 1 *</label>
+          <input type="text" [(ngModel)]="shippingAddress.addressLine1" name="addressLine1" required>
+        </div>
+        <div class="form-group full-width">
+          <label>Address Line 2</label>
+          <input type="text" [(ngModel)]="shippingAddress.addressLine2" name="addressLine2">
+        </div>
+        <div class="form-group">
+          <label>City *</label>
+          <input type="text" [(ngModel)]="shippingAddress.city" name="city" required>
+        </div>
+        <div class="form-group">
+          <label>State/Province</label>
+          <input type="text" [(ngModel)]="shippingAddress.stateOrProvince" name="stateOrProvince">
+        </div>
+        <div class="form-group">
+          <label>Postal Code *</label>
+          <input type="text" [(ngModel)]="shippingAddress.postalCode" name="postalCode" required>
+        </div>
+        <div class="form-group">
+          <label>Country *</label>
+          <input type="text" [(ngModel)]="shippingAddress.countryCode" name="countryCode" required maxlength="3">
+        </div>
+      </div>
+    </div>
+
+    <!-- Order Lines -->
+    <div class="form-section">
+      <h2>Order Lines</h2>
+      
+      <!-- Add Line Form -->
+      <div class="add-line-form">
+        <div class="line-inputs">
+          <input type="text" [(ngModel)]="newLine.productCode" name="newProductCode" placeholder="Product Code *" class="input-sm">
+          <input type="text" [(ngModel)]="newLine.description" name="newDescription" placeholder="Description" class="input-md">
+          <input type="number" [(ngModel)]="newLine.quantity" name="newQuantity" placeholder="Qty" min="0.01" step="0.01" class="input-xs">
+          <input type="text" [(ngModel)]="newLine.unitOfMeasure" name="newUom" placeholder="UoM" class="input-xs">
+          <input type="number" [(ngModel)]="newLine.unitPrice" name="newUnitPrice" placeholder="Price" min="0" step="0.01" class="input-sm">
+          <input type="number" [(ngModel)]="newLine.discountPercent" name="newDiscount" placeholder="Disc %" min="0" max="100" class="input-xs">
+          <input type="number" [(ngModel)]="newLine.taxPercent" name="newTax" placeholder="Tax %" min="0" class="input-xs">
+          <button type="button" (click)="addLine()" class="btn btn-add" [disabled]="!newLine.productCode || newLine.quantity <= 0">
+            + Add
+          </button>
+        </div>
+      </div>
+
+      <!-- Lines Table -->
+      <div *ngIf="order.lines.length > 0" class="lines-table-container">
+        <table class="lines-table">
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>Description</th>
+              <th class="text-right">Qty</th>
+              <th>UoM</th>
+              <th class="text-right">Price</th>
+              <th class="text-right">Disc %</th>
+              <th class="text-right">Tax %</th>
+              <th class="text-right">Total</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let line of order.lines; let i = index">
+              <td class="product-code">{{ line.productCode }}</td>
+              <td>{{ line.description }}</td>
+              <td class="text-right">{{ line.quantity }}</td>
+              <td>{{ line.unitOfMeasure }}</td>
+              <td class="text-right">{{ formatCurrency(line.unitPrice) }}</td>
+              <td class="text-right">{{ line.discountPercent }}%</td>
+              <td class="text-right">{{ line.taxPercent }}%</td>
+              <td class="text-right font-bold">{{ formatCurrency(calculateLineTotal(line) + calculateLineTax(line)) }}</td>
+              <td>
+                <button type="button" (click)="removeLine(i)" class="btn-remove">×</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div *ngIf="order.lines.length === 0" class="empty-lines">
+        <p>No lines added yet. Use the form above to add order lines.</p>
+      </div>
+
+      <!-- Totals -->
+      <div *ngIf="order.lines.length > 0" class="totals">
+        <div class="total-row">
+          <span>Subtotal:</span>
+          <span>{{ formatCurrency(subtotal) }}</span>
+        </div>
+        <div class="total-row">
+          <span>Tax:</span>
+          <span>{{ formatCurrency(totalTax) }}</span>
+        </div>
+        <div class="total-row grand-total">
+          <span>Grand Total:</span>
+          <span>{{ formatCurrency(grandTotal) }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Submit -->
+    <div class="form-actions">
+      <a routerLink="/orders" class="btn btn-secondary">Cancel</a>
+      <button type="submit" [disabled]="saving || order.lines.length === 0" class="btn btn-primary">
+        {{ saving ? 'Creating...' : 'Create Order' }}
+      </button>
+    </div>
+  </form>
+</div>

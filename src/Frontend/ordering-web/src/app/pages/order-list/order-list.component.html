@@ -1,0 +1,60 @@
+<div class="order-list-container">
+  <header class="page-header">
+    <h1>Orders</h1>
+    <a routerLink="/orders/new" class="btn btn-primary">
+      <span class="icon">+</span> New Order
+    </a>
+  </header>
+
+  <div *ngIf="loading" class="loading">
+    <div class="spinner"></div>
+    <p>Loading orders...</p>
+  </div>
+
+  <div *ngIf="error" class="error-message">
+    <p>{{ error }}</p>
+    <button (click)="loadOrders()" class="btn btn-secondary">Retry</button>
+  </div>
+
+  <div *ngIf="!loading && !error && orders.length === 0" class="empty-state">
+    <div class="empty-icon">📦</div>
+    <h2>No orders yet</h2>
+    <p>Create your first order to get started</p>
+    <a routerLink="/orders/new" class="btn btn-primary">Create Order</a>
+  </div>
+
+  <div *ngIf="!loading && !error && orders.length > 0" class="orders-table-container">
+    <table class="orders-table">
+      <thead>
+        <tr>
+          <th>Order ID</th>
+          <th>Customer Ref</th>
+          <th>Status</th>
+          <th>Lines</th>
+          <th>Total</th>
+          <th>Created</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let order of orders" [routerLink]="['/orders', order.id]" class="clickable-row">
+          <td class="order-id">{{ order.id.substring(0, 8) }}...</td>
+          <td>{{ order.customerReference || '-' }}</td>
+          <td>
+            <span class="status-badge" [style.background-color]="getStatusColor(order.status)">
+              {{ getStatusLabel(order.status) }}
+            </span>
+          </td>
+          <td class="text-center">{{ order.lineCount }}</td>
+          <td class="text-right">{{ formatCurrency(order.grandTotal) }}</td>
+          <td>{{ formatDate(order.createdAt) }}</td>
+          <td>
+            <a [routerLink]="['/orders', order.id]" class="btn btn-sm btn-secondary" (click)="$event.stopPropagation()">
+              View
+            </a>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>

@@ -240,10 +240,43 @@ DistributedPlayground/
 └── DistributedPlayground.sln
 ```
 
+## Frontend - Ordering Web (Angular)
+
+Angular 17 SPA for managing orders.
+
+**Location:** `src/Frontend/ordering-web`
+
+### Pages
+
+| Page | Route | Description |
+|------|-------|-------------|
+| Order List | `/orders` | List all orders with summary |
+| Order Detail | `/orders/:id` | View order details and execute workflow actions |
+| Create Order | `/orders/new` | Create a new order with lines |
+
+### Running the Frontend
+
+```powershell
+cd src/Frontend/ordering-web
+npm install
+npm start
+```
+
+**URL:** http://localhost:4200
+
+### Features
+
+- View all orders with status badges
+- Create orders with multiple line items
+- Execute workflow actions (Start Processing, Ship, Deliver, Invoice, Cancel)
+- Modal dialogs for actions requiring input
+- Responsive design
+
 ## Technology Stack
 
 | Technology | Purpose |
 |------------|---------|
+| **Angular 17** | Frontend SPA |
 | **.NET 9** | Web APIs (Minimal APIs) |
 | **MassTransit** | Message broker abstraction |
 | **RabbitMQ** | Message broker |
