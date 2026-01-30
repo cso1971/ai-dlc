@@ -7,7 +7,7 @@ public record ChatRequest(
     string? SystemPrompt = null,
     float? Temperature = null,
     int? MaxTokens = null,
-    int? MaxResults = 10
+    int? MaxResults = 100
 );
 
 public record ChatResponse(
