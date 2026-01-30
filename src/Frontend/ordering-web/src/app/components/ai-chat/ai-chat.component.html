@@ -1,0 +1,122 @@
+<!-- Floating toggle button -->
+<button class="chat-toggle" (click)="togglePanel()" [class.open]="isOpen">
+  <span class="toggle-icon">🤖</span>
+  <span class="toggle-text" *ngIf="!isOpen">AI Assistant</span>
+  <span class="toggle-close" *ngIf="isOpen">✕</span>
+</button>
+
+<!-- Chat panel -->
+<div class="chat-panel" [class.open]="isOpen">
+  <!-- Header -->
+  <div class="chat-header">
+    <div class="header-title">
+      <span class="ai-icon">🤖</span>
+      <span>AI Assistant</span>
+      <span class="status-dot" [class.connected]="isConnected" [class.disconnected]="!isConnected"></span>
+    </div>
+    <div class="header-actions">
+      <button class="btn-icon" (click)="checkConnection()" title="Refresh connection">🔄</button>
+      <button class="btn-icon" (click)="clearChat()" title="Clear chat">🗑️</button>
+    </div>
+  </div>
+
+  <!-- Connection error -->
+  <div class="connection-error" *ngIf="!isConnected && connectionError">
+    <span class="error-icon">⚠️</span>
+    <span>{{ connectionError }}</span>
+    <button class="retry-btn" (click)="checkConnection()">Retry</button>
+  </div>
+
+  <!-- Model info -->
+  <div class="model-info" *ngIf="isConnected && modelInfo">
+    <span class="model-badge">{{ modelInfo.chatModel }}</span>
+    <span class="model-badge secondary">{{ modelInfo.embeddingModel }}</span>
+  </div>
+
+  <!-- Mode selector -->
+  <div class="mode-selector">
+    <button 
+      class="mode-btn" 
+      [class.active]="mode === 'chat'" 
+      (click)="setMode('chat')">
+      💬 Chat
+    </button>
+    <button 
+      class="mode-btn" 
+      [class.active]="mode === 'search'" 
+      (click)="setMode('search')">
+      🔍 Search Orders
+    </button>
+    <button 
+      class="mode-btn" 
+      [class.active]="mode === 'analyze'" 
+      (click)="setMode('analyze')">
+      📊 Analyze
+    </button>
+  </div>
+
+  <!-- Messages -->
+  <div class="chat-messages">
+    <div 
+      *ngFor="let msg of messages" 
+      class="message" 
+      [class.user]="msg.role === 'user'"
+      [class.assistant]="msg.role === 'assistant'"
+      [class.system]="msg.role === 'system'">
+      
+      <div class="message-content">
+        <div class="message-text">{{ msg.content }}</div>
+        
+        <!-- Search results -->
+        <div class="search-results" *ngIf="msg.searchResults && msg.searchResults.length > 0">
+          <div class="search-result" *ngFor="let result of msg.searchResults">
+            <div class="result-header">
+              <a [href]="'/orders/' + result.orderId" class="order-link">
+                Order: {{ result.orderId | slice:0:8 }}...
+              </a>
+              <span class="score-badge">{{ (result.score * 100).toFixed(1) }}% match</span>
+            </div>
+            <div class="result-details">
+              <span *ngIf="result.metadata['status']" class="detail-badge">{{ result.metadata['status'] }}</span>
+              <span *ngIf="result.metadata['grandTotal']" class="detail-badge">{{ result.metadata['grandTotal'] | number:'1.2-2' }} {{ result.metadata['currencyCode'] }}</span>
+              <span *ngIf="result.metadata['shippingCity']" class="detail-badge">📍 {{ result.metadata['shippingCity'] }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="message-meta" *ngIf="msg.duration">
+          <span class="duration">⏱️ {{ formatDuration(msg.duration) }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading indicator -->
+    <div class="message assistant loading" *ngIf="isLoading">
+      <div class="message-content">
+        <div class="typing-indicator">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Input area -->
+  <div class="chat-input">
+    <textarea 
+      [(ngModel)]="userInput"
+      (keypress)="handleKeyPress($event)"
+      [placeholder]="mode === 'search' ? 'Search orders by description...' : mode === 'analyze' ? 'Paste text to analyze...' : 'Ask me anything...'"
+      [disabled]="!isConnected || isLoading"
+      rows="2">
+    </textarea>
+    <button 
+      class="send-btn" 
+      (click)="sendMessage()" 
+      [disabled]="!userInput.trim() || !isConnected || isLoading">
+      <span *ngIf="!isLoading">➤</span>
+      <span *ngIf="isLoading">...</span>
+    </button>
+  </div>
+</div>

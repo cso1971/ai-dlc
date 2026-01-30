@@ -417,7 +417,21 @@ npm start
 - Create orders with multiple line items
 - Execute workflow actions (Start Processing, Ship, Deliver, Invoice, Cancel)
 - Modal dialogs for actions requiring input
+- **AI Chat Assistant** - Always visible floating panel with:
+  - 💬 Chat mode: Ask questions about orders
+  - 🔍 Search mode: Semantic search over orders in Qdrant
+  - 📊 Analyze mode: AI analysis of text
 - Responsive design
+
+### AI Chat Assistant
+
+The AI Chat panel is always visible in the bottom-right corner. It connects to AI.Processor and provides:
+
+- **Chat**: Ask questions, get AI-powered answers
+- **Search Orders**: Find similar orders using semantic search
+- **Analyze**: Send text for AI analysis
+
+Click the 🤖 button to open/close the panel.
 
 ## Technology Stack
 
