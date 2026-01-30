@@ -19,9 +19,17 @@ public class OllamaService : IOllamaService
         _model = configuration["Ollama:Model"] ?? "llama3.2";
         _embeddingModel = configuration["Ollama:EmbeddingModel"] ?? "nomic-embed-text";
         
-        _client = new OllamaApiClient(new Uri(baseUrl));
-        _logger.LogInformation("OllamaService initialized with endpoint {BaseUrl}, model {Model}, embedding model {EmbeddingModel}", 
-            baseUrl, _model, _embeddingModel);
+        // Configure HttpClient with extended timeout for LLM operations
+        var timeoutMinutes = int.Parse(configuration["Ollama:TimeoutMinutes"] ?? "10");
+        var httpClient = new HttpClient
+        {
+            BaseAddress = new Uri(baseUrl),
+            Timeout = TimeSpan.FromMinutes(timeoutMinutes)
+        };
+        
+        _client = new OllamaApiClient(httpClient);
+        _logger.LogInformation("OllamaService initialized with endpoint {BaseUrl}, model {Model}, embedding model {EmbeddingModel}, timeout {Timeout} minutes", 
+            baseUrl, _model, _embeddingModel, timeoutMinutes);
     }
 
     public async Task<string> GenerateCompletionAsync(string prompt, CancellationToken cancellationToken = default)
