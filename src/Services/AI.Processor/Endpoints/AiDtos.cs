@@ -6,13 +6,15 @@ public record ChatRequest(
     string Prompt,
     string? SystemPrompt = null,
     float? Temperature = null,
-    int? MaxTokens = null
+    int? MaxTokens = null,
+    int? MaxResults = 10
 );
 
 public record ChatResponse(
     string Response,
     string Model,
-    TimeSpan Duration
+    TimeSpan Duration,
+    int? ContextOrdersCount = null
 );
 
 public record StreamChatRequest(

@@ -16,26 +16,77 @@ public static class AiEndpoints
         group.MapPost("/chat", async (
             [FromBody] ChatRequest request,
             [FromServices] IOllamaService ollamaService,
+            [FromServices] IQdrantService qdrantService,
+            ILogger<Program> logger,
             CancellationToken cancellationToken) =>
         {
             var sw = Stopwatch.StartNew();
             
-            var prompt = string.IsNullOrEmpty(request.SystemPrompt)
-                ? request.Prompt
-                : $"{request.SystemPrompt}\n\n{request.Prompt}";
+            // Step 1: Generate embedding for the user's question
+            logger.LogDebug("RAG: Generating embedding for query: {Query}", request.Prompt);
+            var queryEmbedding = await ollamaService.GenerateEmbeddingAsync(request.Prompt, cancellationToken);
             
-            var response = await ollamaService.GenerateCompletionAsync(prompt, cancellationToken);
+            // Step 2: Search Qdrant for relevant orders
+            logger.LogDebug("RAG: Searching Qdrant for relevant orders...");
+            var searchResults = await qdrantService.SearchSimilarOrdersAsync(queryEmbedding, request.MaxResults ?? 10, cancellationToken);
+            
+            // Step 3: Build context from search results
+            var contextBuilder = new System.Text.StringBuilder();
+            contextBuilder.AppendLine("=== DATI ORDINI DAL DATABASE ===");
+            contextBuilder.AppendLine($"Trovati {searchResults.Count} ordini rilevanti:\n");
+            
+            foreach (var result in searchResults)
+            {
+                contextBuilder.AppendLine($"--- Ordine {result.OrderId} (relevance: {result.Score:F2}) ---");
+                if (result.Payload != null)
+                {
+                    foreach (var kvp in result.Payload)
+                    {
+                        contextBuilder.AppendLine($"  {kvp.Key}: {kvp.Value}");
+                    }
+                }
+                contextBuilder.AppendLine();
+            }
+            
+            // Step 4: Build the RAG prompt with context
+            var systemPrompt = request.SystemPrompt ?? """
+                Sei un assistente AI per un sistema di gestione ordini.
+                Rispondi SEMPRE basandoti sui dati degli ordini forniti nel contesto.
+                Se ti viene chiesto di contare o elencare ordini, usa SOLO i dati forniti.
+                Se non trovi informazioni rilevanti nel contesto, dillo chiaramente.
+                Rispondi in italiano.
+                """;
+            
+            var ragPrompt = $"""
+                {systemPrompt}
+                
+                {contextBuilder}
+                
+                === DOMANDA UTENTE ===
+                {request.Prompt}
+                
+                === RISPOSTA (basata sui dati sopra) ===
+                """;
+            
+            logger.LogDebug("RAG: Sending prompt to Ollama with {Count} orders as context", searchResults.Count);
+            
+            // Step 5: Get response from Ollama
+            var response = await ollamaService.GenerateCompletionAsync(ragPrompt, cancellationToken);
             sw.Stop();
+            
+            logger.LogInformation("RAG: Completed in {Duration}ms with {OrderCount} orders as context", 
+                sw.ElapsedMilliseconds, searchResults.Count);
             
             return Results.Ok(new ChatResponse(
                 Response: response,
                 Model: "llama3.2",
-                Duration: sw.Elapsed
+                Duration: sw.Elapsed,
+                ContextOrdersCount: searchResults.Count
             ));
         })
         .WithName("Chat")
-        .WithSummary("Send a prompt to Ollama and get a completion")
-        .WithDescription("Sends a text prompt to the Ollama LLM and returns the generated response. Optionally include a system prompt for context.")
+        .WithSummary("RAG-powered chat with order context")
+        .WithDescription("Searches for relevant orders in Qdrant, then sends the question with order context to Ollama for an informed response.")
         .Produces<ChatResponse>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status500InternalServerError);
 
