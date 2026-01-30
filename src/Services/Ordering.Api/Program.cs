@@ -1,5 +1,6 @@
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.OpenApi.Models;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Ordering.Api.Endpoints;
@@ -73,22 +74,47 @@ builder.Services.AddHealthChecks()
     .AddRabbitMQ(rabbitConnectionString: $"amqp://{configuration["RabbitMQ:Username"]}:{configuration["RabbitMQ:Password"]}@{configuration["RabbitMQ:Host"]}:5672", name: "rabbitmq");
 
 // ===========================================
-// API
+// OpenAPI / Swagger
 // ===========================================
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "Ordering API",
+        Version = "v1",
+        Description = "Order management API for the Distributed Playground",
+        Contact = new OpenApiContact
+        {
+            Name = "Distributed Playground"
+        }
+    });
+});
 
 var app = builder.Build();
 
 // ===========================================
 // Middleware Pipeline
 // ===========================================
+
+// Swagger UI (available in all environments for playground)
+app.UseSwagger();
+app.UseSwaggerUI(options =>
+{
+    options.SwaggerEndpoint("/swagger/v1/swagger.json", "Ordering API v1");
+    options.RoutePrefix = "swagger";
+});
+
 app.UseHttpsRedirection();
 
 // Health check endpoint
 app.MapHealthChecks("/health");
 
 // Service info endpoint
-app.MapGet("/", () => Results.Ok(new { Service = serviceName, Status = "Running" }));
+app.MapGet("/", () => Results.Ok(new { Service = serviceName, Status = "Running" }))
+    .WithTags("Health")
+    .WithSummary("Service status")
+    .ExcludeFromDescription();
 
 // Order REST API
 app.MapOrderEndpoints();

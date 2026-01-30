@@ -1,5 +1,6 @@
 using Contracts.Commands.Ordering;
 using Contracts.ValueObjects.Ordering;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Ordering.Api.Domain;
 using Ordering.Api.Services;
 
@@ -15,42 +16,70 @@ public static class OrderEndpoints
         // GET /api/orders
         group.MapGet("/", GetAllOrders)
             .WithName("GetAllOrders")
-            .WithSummary("Get all orders");
+            .WithSummary("Get all orders")
+            .WithDescription("Returns a list of all orders with summary information")
+            .Produces<List<OrderSummaryResponse>>(StatusCodes.Status200OK);
 
         // GET /api/orders/{id}
         group.MapGet("/{id:guid}", GetOrderById)
             .WithName("GetOrderById")
-            .WithSummary("Get order by ID");
+            .WithSummary("Get order by ID")
+            .WithDescription("Returns the complete details of a specific order including all line items")
+            .Produces<OrderResponse>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status404NotFound);
 
         // POST /api/orders
         group.MapPost("/", CreateOrder)
             .WithName("CreateOrder")
-            .WithSummary("Create a new order");
+            .WithSummary("Create a new order")
+            .WithDescription("Creates a new order with the specified line items. The order starts in 'Created' status.")
+            .Produces<OrderResponse>(StatusCodes.Status201Created)
+            .Produces(StatusCodes.Status400BadRequest);
 
         // POST /api/orders/{id}/start-processing
         group.MapPost("/{id:guid}/start-processing", StartProcessing)
             .WithName("StartOrderProcessing")
-            .WithSummary("Start processing an order");
+            .WithSummary("Start processing an order")
+            .WithDescription("Transitions the order from 'Created' to 'InProgress' status")
+            .Produces<OrderResponse>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status404NotFound);
 
         // POST /api/orders/{id}/ship
         group.MapPost("/{id:guid}/ship", ShipOrder)
             .WithName("ShipOrder")
-            .WithSummary("Ship an order");
+            .WithSummary("Ship an order")
+            .WithDescription("Transitions the order from 'InProgress' to 'Shipped' status. Requires tracking number.")
+            .Produces<OrderResponse>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status404NotFound);
 
         // POST /api/orders/{id}/deliver
         group.MapPost("/{id:guid}/deliver", DeliverOrder)
             .WithName("DeliverOrder")
-            .WithSummary("Mark order as delivered");
+            .WithSummary("Mark order as delivered")
+            .WithDescription("Transitions the order from 'Shipped' to 'Delivered' status")
+            .Produces<OrderResponse>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status404NotFound);
 
         // POST /api/orders/{id}/invoice
         group.MapPost("/{id:guid}/invoice", InvoiceOrder)
             .WithName("InvoiceOrder")
-            .WithSummary("Mark order as invoiced");
+            .WithSummary("Mark order as invoiced")
+            .WithDescription("Transitions the order from 'Delivered' to 'Invoiced' status (final state)")
+            .Produces<OrderResponse>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status404NotFound);
 
         // POST /api/orders/{id}/cancel
         group.MapPost("/{id:guid}/cancel", CancelOrder)
             .WithName("CancelOrder")
-            .WithSummary("Cancel an order");
+            .WithSummary("Cancel an order")
+            .WithDescription("Cancels the order. Can be called from any status except 'Invoiced'. Requires a cancellation reason.")
+            .Produces<OrderResponse>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status404NotFound);
     }
 
     private static async Task<IResult> GetAllOrders(OrderingService service)
