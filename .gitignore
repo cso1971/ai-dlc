@@ -1,0 +1,86 @@
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# Visual Studio
+.vs/
+*.user
+*.userosscache
+*.sln.docstates
+*.suo
+
+# Rider
+.idea/
+
+# VS Code
+.vscode/
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# NuGet
+*.nupkg
+*.snupkg
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+*.nuget.props
+*.nuget.targets
+project.lock.json
+
+# Build server
+project.json
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# .NET Core
+*.dotCover
+
+# StyleCop
+StyleCopReport.xml
+
+# Test Results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+*.trx
+*.Coverage
+*.coveragexml
+
+# Entity Framework Migrations
+**/Migrations/*.Designer.cs
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Docker
+**/docker-compose.override.yml
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Secrets
+**/secrets/
+appsettings.*.local.json

@@ -1,0 +1,185 @@
+version: '3.8'
+
+services:
+  # ===========================================
+  # INFRASTRUCTURE SERVICES
+  # ===========================================
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: playground-postgres
+    profiles: ["infra", "full"]
+    environment:
+      POSTGRES_USER: playground
+      POSTGRES_PASSWORD: playground_pwd
+      POSTGRES_DB: playground_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U playground -d playground_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - playground-network
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: playground-rabbitmq
+    profiles: ["infra", "full"]
+    environment:
+      RABBITMQ_DEFAULT_USER: playground
+      RABBITMQ_DEFAULT_PASS: playground_pwd
+    ports:
+      - "5672:5672"   # AMQP
+      - "15672:15672" # Management UI
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - playground-network
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: playground-qdrant
+    profiles: ["infra", "full"]
+    ports:
+      - "6333:6333" # REST API
+      - "6334:6334" # gRPC
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - playground-network
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: playground-ollama
+    profiles: ["infra", "full"]
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    # GPU support (uncomment if you have NVIDIA GPU)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+    networks:
+      - playground-network
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: playground-jaeger
+    profiles: ["infra", "full"]
+    environment:
+      COLLECTOR_OTLP_ENABLED: true
+    ports:
+      - "16686:16686" # Jaeger UI
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+    networks:
+      - playground-network
+
+  # ===========================================
+  # APPLICATION SERVICES (for containerized run)
+  # ===========================================
+
+  ordering-api:
+    build:
+      context: ..
+      dockerfile: infra/dockerfiles/Ordering.Api.Dockerfile
+    container_name: playground-ordering-api
+    profiles: ["full"]
+    environment:
+      ASPNETCORE_ENVIRONMENT: Docker
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__PostgreSQL: "Host=postgres;Database=playground_db;Username=playground;Password=playground_pwd"
+      RabbitMQ__Host: rabbitmq
+      RabbitMQ__Username: playground
+      RabbitMQ__Password: playground_pwd
+      Ollama__BaseUrl: http://ollama:11434
+      Qdrant__Host: qdrant
+      Qdrant__Port: 6334
+      Jaeger__Endpoint: http://jaeger:4317
+    ports:
+      - "5001:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - playground-network
+
+  invoicing-api:
+    build:
+      context: ..
+      dockerfile: infra/dockerfiles/Invoicing.Api.Dockerfile
+    container_name: playground-invoicing-api
+    profiles: ["full"]
+    environment:
+      ASPNETCORE_ENVIRONMENT: Docker
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__PostgreSQL: "Host=postgres;Database=playground_db;Username=playground;Password=playground_pwd"
+      RabbitMQ__Host: rabbitmq
+      RabbitMQ__Username: playground
+      RabbitMQ__Password: playground_pwd
+      Ollama__BaseUrl: http://ollama:11434
+      Qdrant__Host: qdrant
+      Qdrant__Port: 6334
+      Jaeger__Endpoint: http://jaeger:4317
+    ports:
+      - "5002:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - playground-network
+
+  customers-api:
+    build:
+      context: ..
+      dockerfile: infra/dockerfiles/Customers.Api.Dockerfile
+    container_name: playground-customers-api
+    profiles: ["full"]
+    environment:
+      ASPNETCORE_ENVIRONMENT: Docker
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__PostgreSQL: "Host=postgres;Database=playground_db;Username=playground;Password=playground_pwd"
+      RabbitMQ__Host: rabbitmq
+      RabbitMQ__Username: playground
+      RabbitMQ__Password: playground_pwd
+      Ollama__BaseUrl: http://ollama:11434
+      Qdrant__Host: qdrant
+      Qdrant__Port: 6334
+      Jaeger__Endpoint: http://jaeger:4317
+    ports:
+      - "5003:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - playground-network
+
+networks:
+  playground-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  rabbitmq_data:
+  qdrant_data:
+  ollama_data:
