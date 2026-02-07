@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using AI.Processor.Clients;
 using AI.Processor.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -17,14 +18,19 @@ public static class AiEndpoints
             [FromBody] ChatRequest request,
             [FromServices] IOllamaService ollamaService,
             [FromServices] IQdrantService qdrantService,
+            [FromServices] IOrderApiClient orderApiClient,
             ILogger<Program> logger,
             CancellationToken cancellationToken) =>
         {
             var sw = Stopwatch.StartNew();
             
-            // Step 1: Generate embedding for the user's question
+            // Step 1: Generate embedding and fetch order aggregates in parallel
             logger.LogDebug("RAG: Generating embedding for query: {Query}", request.Prompt);
-            var queryEmbedding = await ollamaService.GenerateEmbeddingAsync(request.Prompt, cancellationToken);
+            var embeddingTask = ollamaService.GenerateEmbeddingAsync(request.Prompt, cancellationToken);
+            var statsTask = orderApiClient.GetOrderStatsAsync(cancellationToken);
+            await Task.WhenAll(embeddingTask, statsTask);
+            var queryEmbedding = await embeddingTask;
+            var orderStats = await statsTask;
             
             var maxResults = request.MaxResults ?? 20;
             var limitPerCollection = (maxResults + 1) / 2; // split between orders and customers
@@ -37,9 +43,19 @@ public static class AiEndpoints
             var orderResults = await ordersTask;
             var customerResults = await customersTask;
             
-            // Step 3: Build context from both search results (no GUIDs: use ordinal labels and skip id fields in payload)
+            // Step 3: Build context: start with system aggregates (for correct total-value answers), then RAG results
             var contextBuilder = new System.Text.StringBuilder();
             var idKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "orderId", "customerId", "orderText", "customerText" };
+            
+            if (orderStats != null)
+            {
+                contextBuilder.AppendLine("=== DATI DI SISTEMA (aggregati reali - usare per totali e somme) ===");
+                contextBuilder.AppendLine($"Numero totale ordini: {orderStats.TotalOrderCount}");
+                foreach (var c in orderStats.ByCurrency)
+                    contextBuilder.AppendLine($"  Valore totale in {c.CurrencyCode}: {c.TotalValue:F2} ({c.OrderCount} ordini)");
+                contextBuilder.AppendLine();
+            }
+            
             contextBuilder.AppendLine("=== DATI ORDINI DAL DATABASE ===");
             contextBuilder.AppendLine($"Trovati {orderResults.Count} ordini rilevanti:\n");
             var orderIndex = 0;
@@ -78,9 +94,10 @@ public static class AiEndpoints
             // Step 4: Build the RAG prompt with context
             var systemPrompt = request.SystemPrompt ?? """
                 Sei un assistente AI per un sistema di gestione ordini e clienti.
-                Rispondi SEMPRE basandoti sui dati di ordini e clienti forniti nel contesto.
-                Il contesto contiene due sezioni: DATI ORDINI e DATI CLIENTI. Usa entrambe se rilevanti per la domanda.
-                Se ti viene chiesto di contare o elencare, usa SOLO i dati forniti.
+                Rispondi SEMPRE basandoti sui dati forniti nel contesto.
+                Per il VALORE TOTALE degli ordini o il NUMERO TOTALE di ordini usa ESCLUSIVAMENTE la sezione "DATI DI SISTEMA (aggregati reali)": non sommare i singoli ordini elencati sotto, perché sono solo un sottoinsieme rilevante per la domanda.
+                Il contesto contiene anche DATI ORDINI e DATI CLIENTI (campioni rilevanti). Usa entrambe le sezioni se rilevanti.
+                Se ti viene chiesto di contare o elencare singoli elementi, usa i dati forniti; per totali complessivi usa sempre gli aggregati di sistema.
                 NON mostrare mai identificativi tecnici (GUID, UUID) nelle risposte. Descrivi ordini e clienti con dati leggibili: totale, valuta, azienda (companyName/displayName), città, riferimento ordine (customerReference), stato, ecc.
                 Se non trovi informazioni rilevanti nel contesto, dillo chiaramente.
                 Rispondi in italiano.

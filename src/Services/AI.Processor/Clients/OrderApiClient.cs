@@ -45,6 +45,25 @@ public class OrderApiClient : IOrderApiClient
         }
     }
 
+    public async Task<OrderStatsResponse?> GetOrderStatsAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync("api/orders/stats", cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("Failed to fetch order stats: {StatusCode}", response.StatusCode);
+                return null;
+            }
+            return await response.Content.ReadFromJsonAsync<OrderStatsResponse>(cancellationToken: cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching order stats from Ordering API");
+            return null;
+        }
+    }
+
     /// <summary>
     /// Creates the HTTP client with retry policy
     /// </summary>

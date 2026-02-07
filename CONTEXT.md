@@ -101,6 +101,7 @@
 
 ### 4. **RAG implementato nel chat endpoint**
 - `/api/ai/chat` cerca in Qdrant **sia** la collection `orders` **sia** la collection `customers` (ricerca semantica in parallelo), unisce i risultati in un unico contesto e lo invia a Ollama
+- **Aggregati reali**: per risposte corrette sul valore totale degli ordini, il chat recupera gli aggregati da Ordering.Api (`GET /api/orders/stats`) e li inietta nel contesto come sezione "DATI DI SISTEMA (aggregati reali)". Il system prompt istruisce il LLM a usare solo questi dati per totali/somme, non la somma dei singoli ordini restituiti dalla search (che è un sottoinsieme).
 - Passa i risultati come contesto a Ollama
 - Risponde basandosi su dati reali, non conoscenza generica
 - **MaxResults** (default 20): limite totale contesto; viene ripartito tra ordini e clienti (metà ciascuno)

@@ -20,6 +20,13 @@ public static class OrderEndpoints
             .WithDescription("Returns a list of all orders with summary information")
             .Produces<List<OrderSummaryResponse>>(StatusCodes.Status200OK);
 
+        // GET /api/orders/stats
+        group.MapGet("/stats", GetOrderStats)
+            .WithName("GetOrderStats")
+            .WithSummary("Get order aggregates")
+            .WithDescription("Returns total order count and total value per currency (for AI chatbot).")
+            .Produces<OrderStatsResponse>(StatusCodes.Status200OK);
+
         // GET /api/orders/{id}
         group.MapGet("/{id:guid}", GetOrderById)
             .WithName("GetOrderById")
@@ -87,6 +94,12 @@ public static class OrderEndpoints
         var orders = await service.GetAllOrdersAsync();
         var response = orders.Select(MapToSummary).ToList();
         return Results.Ok(response);
+    }
+
+    private static async Task<IResult> GetOrderStats(OrderingService service, CancellationToken cancellationToken)
+    {
+        var stats = await service.GetOrderStatsAsync(cancellationToken);
+        return Results.Ok(stats);
     }
 
     private static async Task<IResult> GetOrderById(Guid id, OrderingService service)

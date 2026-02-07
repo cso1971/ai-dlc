@@ -129,3 +129,19 @@ public record OrderSummaryResponse
     public decimal GrandTotal { get; init; }
     public int LineCount { get; init; }
 }
+
+/// <summary>
+/// Aggregates for order totals. Used by the AI chatbot to give correct total values.
+/// </summary>
+public record OrderStatsResponse
+{
+    public int TotalOrderCount { get; init; }
+    public IReadOnlyList<CurrencyOrderStats> ByCurrency { get; init; } = [];
+}
+
+public record CurrencyOrderStats
+{
+    public string CurrencyCode { get; init; } = "";
+    public int OrderCount { get; init; }
+    public decimal TotalValue { get; init; }
+}

@@ -153,6 +153,7 @@ dotnet run --project src/Services/Customers.Api
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `GET` | `/api/orders` | List all orders (summary) |
+| `GET` | `/api/orders/stats` | Order aggregates (total count, total value per currency; used by AI chat for correct totals) |
 | `GET` | `/api/orders/{id}` | Get order details |
 | `GET` | `/api/metrics/rabbitmq` | RabbitMQ queue metrics (total messages, per-queue; used by frontend navbar widget) |
 | `POST` | `/api/orders` | Create a new order |

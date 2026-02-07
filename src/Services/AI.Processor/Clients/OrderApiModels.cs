@@ -99,3 +99,19 @@ public record OrderLineResponse
     public decimal TaxAmount { get; init; }
     public decimal LineTotalWithTax { get; init; }
 }
+
+/// <summary>
+/// Order aggregates from Ordering.Api GET /api/orders/stats (for RAG total-value accuracy).
+/// </summary>
+public record OrderStatsResponse
+{
+    public int TotalOrderCount { get; init; }
+    public IReadOnlyList<CurrencyOrderStats> ByCurrency { get; init; } = [];
+}
+
+public record CurrencyOrderStats
+{
+    public string CurrencyCode { get; init; } = "";
+    public int OrderCount { get; init; }
+    public decimal TotalValue { get; init; }
+}

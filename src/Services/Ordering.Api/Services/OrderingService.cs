@@ -4,6 +4,7 @@ using Contracts.Enums;
 using MassTransit;
 using Ordering.Api.Clients;
 using Ordering.Api.Domain;
+using Ordering.Api.Endpoints;
 
 namespace Ordering.Api.Services;
 
@@ -200,6 +201,29 @@ public class OrderingService
     public async Task<IReadOnlyList<Order>> GetAllOrdersAsync(CancellationToken cancellationToken = default)
     {
         return await _repository.GetAllAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Returns aggregate stats (total order count, total value per currency) for use by the AI chatbot.
+    /// </summary>
+    public async Task<OrderStatsResponse> GetOrderStatsAsync(CancellationToken cancellationToken = default)
+    {
+        var orders = await _repository.GetAllAsync(cancellationToken);
+        var byCurrency = orders
+            .GroupBy(o => o.CurrencyCode)
+            .Select(g => new CurrencyOrderStats
+            {
+                CurrencyCode = g.Key,
+                OrderCount = g.Count(),
+                TotalValue = g.Sum(o => o.GrandTotal)
+            })
+            .OrderBy(c => c.CurrencyCode)
+            .ToList();
+        return new OrderStatsResponse
+        {
+            TotalOrderCount = orders.Count,
+            ByCurrency = byCurrency
+        };
     }
 
     private async Task<Order> GetOrderOrThrowAsync(Guid orderId, CancellationToken cancellationToken)
