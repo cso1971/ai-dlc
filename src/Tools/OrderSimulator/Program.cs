@@ -1,5 +1,6 @@
 using System.CommandLine;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Bogus;
 using Contracts.Commands.Ordering;
 using Contracts.ValueObjects.Ordering;
@@ -259,7 +260,8 @@ rootCommand.SetHandler(async (int orders, int customersToCreate, bool simulateWo
     
     try
     {
-        var response = await httpClient.GetFromJsonAsync<List<OrderSummary>>("api/orders");
+        var jsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        var response = await httpClient.GetFromJsonAsync<List<OrderSummary>>("api/orders", jsonOptions);
         orderSummaries = response?.Take(orders).ToList() ?? new List<OrderSummary>();
         Console.WriteLine($"✅ Fetched {orderSummaries.Count} orders from API");
     }
@@ -412,20 +414,22 @@ rootCommand.SetHandler(async (int orders, int customersToCreate, bool simulateWo
 return await rootCommand.InvokeAsync(args);
 
 // ===== DTOs for Customers API =====
-record CreateCustomerRequestDto(
-    string CompanyName,
-    string? DisplayName,
-    string Email,
-    string? Phone = null,
-    string? TaxId = null,
-    string? VatNumber = null,
-    string PreferredLanguage = "en",
-    string PreferredCurrency = "EUR",
-    string? Notes = null);
+record CreateCustomerRequestDto
+{
+    public string CompanyName { get; init; } = "";
+    public string? DisplayName { get; init; }
+    public string Email { get; init; } = "";
+    public string? Phone { get; init; }
+    public string? TaxId { get; init; }
+    public string? VatNumber { get; init; }
+    public string PreferredLanguage { get; init; } = "en";
+    public string PreferredCurrency { get; init; } = "EUR";
+    public string? Notes { get; init; }
+}
 
 record CreateCustomerResponseDto(Guid Id);
 
 record CustomerSummaryDto(Guid Id, string CompanyName, string? DisplayName, string Email, DateTime CreatedAt, bool IsActive);
 
 // ===== DTOs for Ordering API =====
-record OrderSummary(Guid Id, Guid CustomerId, string? CustomerReference, string Status, DateTime CreatedAt, decimal GrandTotal, int LineCount);
+record OrderSummary(Guid Id, Guid CustomerId, string? CustomerReference, int Status, DateTime CreatedAt, decimal GrandTotal, int LineCount);
