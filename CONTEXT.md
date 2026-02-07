@@ -171,6 +171,10 @@ dotnet run --project src/Tools/OrderSimulator -- -n 50 -w false
 - `order-shipped`, `order-delivered`, etc.: consumer attivi
 - `order-created_error`: riprocessabile con script
 
+### Frontend – widget RabbitMQ in navbar
+- **Ordering.Api** espone `GET /api/metrics/rabbitmq` (chiama RabbitMQ Management API e restituisce totale messaggi e dettaglio per coda).
+- Il portale Angular mostra in navbar (sempre visibile) il totale messaggi in tutte le code e uno sparkline aggiornato ogni 5 secondi.
+
 ### Servizi
 - Ordering.Api: ✅ Running (http://localhost:5001)
 - AI.Processor: ✅ Running (http://localhost:5010)

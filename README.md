@@ -154,6 +154,7 @@ dotnet run --project src/Services/Customers.Api
 |--------|----------|-------------|
 | `GET` | `/api/orders` | List all orders (summary) |
 | `GET` | `/api/orders/{id}` | Get order details |
+| `GET` | `/api/metrics/rabbitmq` | RabbitMQ queue metrics (total messages, per-queue; used by frontend navbar widget) |
 | `POST` | `/api/orders` | Create a new order |
 | `POST` | `/api/orders/{id}/start-processing` | Start order processing |
 | `POST` | `/api/orders/{id}/ship` | Ship order |
@@ -516,6 +517,8 @@ npm start
 - Responsive design
 
 ### AI Chat Assistant
+
+- **RabbitMQ queue stats**: In the navbar, a small widget shows total messages across all RabbitMQ queues and a sparkline of recent values (polling Ordering API `GET /api/metrics/rabbitmq` every 5s).
 
 The AI Chat panel is always visible in the bottom-right corner. It connects to AI.Processor and provides:
 

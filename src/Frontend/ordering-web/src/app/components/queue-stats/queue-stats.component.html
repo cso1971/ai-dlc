@@ -1,0 +1,15 @@
+<div class="queue-stats" title="RabbitMQ total messages (all queues)">
+  <div class="stats-main">
+    <span class="stats-label">RabbitMQ</span>
+    <span class="stats-value" *ngIf="totalMessages !== null">{{ totalMessages }}</span>
+    <span class="stats-value error" *ngIf="totalMessages === null && error">—</span>
+    <span class="stats-value loading" *ngIf="totalMessages === null && !error">…</span>
+    <span class="stats-suffix">msgs</span>
+  </div>
+  <div class="sparkline" *ngIf="history.length >= 2">
+    <svg viewBox="0 0 80 24" preserveAspectRatio="none" class="sparkline-svg">
+      <polyline [attr.points]="sparklinePoints" fill="none" stroke="currentColor" stroke-width="1.5" />
+    </svg>
+  </div>
+  <div class="stats-error" *ngIf="error" title="{{ error }}">⚠</div>
+</div>

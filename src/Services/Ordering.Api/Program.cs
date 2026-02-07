@@ -144,4 +144,7 @@ app.MapGet("/", () => Results.Ok(new { Service = serviceName, Status = "Running"
 // Order REST API
 app.MapOrderEndpoints();
 
+// Metrics (e.g. RabbitMQ queue totals for frontend dashboard)
+app.MapMetricsEndpoints();
+
 app.Run();

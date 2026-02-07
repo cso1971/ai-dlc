@@ -1,0 +1,57 @@
+.queue-stats {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.75rem;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  font-size: 0.8rem;
+}
+
+.stats-main {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+}
+
+.stats-label {
+  color: #a0aec0;
+  font-weight: 500;
+}
+
+.stats-value {
+  color: #e2e8f0;
+  font-weight: 700;
+  min-width: 1.5em;
+  text-align: right;
+
+  &.loading {
+    color: #718096;
+  }
+
+  &.error {
+    color: #fc8181;
+  }
+}
+
+.stats-suffix {
+  color: #718096;
+  font-size: 0.75em;
+}
+
+.sparkline {
+  width: 80px;
+  height: 24px;
+  color: rgba(102, 126, 234, 0.9);
+}
+
+.sparkline-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.stats-error {
+  color: #f6ad55;
+  font-size: 0.9rem;
+}
