@@ -59,6 +59,14 @@ docker-compose --profile infra up -d
 docker-compose --profile full up -d
 ```
 
+**Con GPU NVIDIA (Ollama usa la scheda video):** richiede [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html). Usa l’override:
+
+```powershell
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile infra up -d
+```
+
+Chi non ha GPU NVIDIA usi solo il comando standard sopra (senza `-f docker-compose.gpu.yml`).
+
 ### 2. Initialize Ollama Models
 
 ```powershell
@@ -535,6 +543,9 @@ Click the 🤖 button to open/close the panel.
 ```powershell
 cd infra
 docker-compose --profile infra down
+
+# Se avevi avviato con GPU: usa gli stessi file
+# docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile infra down
 
 # To also remove volumes (data)
 docker-compose --profile infra down -v

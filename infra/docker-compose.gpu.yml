@@ -1,0 +1,17 @@
+# Override per abilitare GPU NVIDIA su Ollama.
+# Usare insieme al file principale:
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile infra up -d
+# Richiede: NVIDIA driver + NVIDIA Container Toolkit installati.
+# Senza GPU: usare solo docker-compose.yml (stesso comando senza -f docker-compose.gpu.yml).
+
+version: '3.8'
+
+services:
+  ollama:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
