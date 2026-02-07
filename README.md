@@ -90,6 +90,9 @@ cat infra/scripts/create-ordering-schema.sql | docker exec -i playground-postgre
 
 Alternatively, if you have the EF Core tools and migrations are discovered correctly: `dotnet ef database update --project src/Services/Ordering.Api`.
 
+**Customers API (schema `customers`):**  
+`dotnet ef database update --project src/Services/Customers.Api`
+
 ### 4. Run .NET Services Locally (Development)
 
 ```powershell
@@ -229,7 +232,13 @@ CreateOrder ──▶ StartProcessing ──▶ Ship ──▶ Deliver ──▶
 |----------|---------|-------|
 | `CreateCustomerConsumer` | `CreateCustomer` | `create-customer` |
 
-The REST `POST /api/customers` uses the same command via `IRequestClient<CreateCustomer>`; the consumer returns `CreateCustomerResponse` and publishes `CustomerCreated` event. Customer aggregate, service, repository and EF persistence are planned for a later step.
+REST `POST /api/customers` calls `CustomerService` and persists to PostgreSQL (schema `customers`, table `customers`). The MassTransit consumer uses the same service. Both publish `CustomerCreated` when a customer is created.
+
+### Database (EF Core)
+
+- Schema: `customers`
+- Table: `customers` (Id, CompanyName, DisplayName, Email, Phone, TaxId, VatNumber, BillingAddress columns, ShippingAddress columns, PreferredLanguage, PreferredCurrency, Notes, CreatedAt, UpdatedAt)
+- Apply migrations: `dotnet ef database update --project src/Services/Customers.Api`
 
 ### CreateCustomer payload (DDD-style)
 

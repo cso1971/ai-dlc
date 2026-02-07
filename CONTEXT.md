@@ -22,7 +22,7 @@
 |----------|-------|-------------|
 | **Ordering.Api** | 5001 | Gestione ordini, aggregato Order, REST + MassTransit |
 | **Invoicing.Api** | 5002 | Fatturazione (placeholder) |
-| **Customers.Api** | 5003 | Clienti: REST + MassTransit CreateCustomer (aggregate/service/repo in step successivi) |
+| **Customers.Api** | 5003 | Clienti: REST + MassTransit CreateCustomer, Customer aggregate, CustomersRepository, EF schema `customers` |
 | **AI.Processor** | 5010 | Elaborazione AI, RAG, embedding, chat |
 
 ### Infrastruttura (Docker)
@@ -208,7 +208,7 @@ dotnet run --project src/Tools/OrderSimulator -- -n 20 -w false
 
 2. **Completare bounded contexts**
    - Implementare Invoicing.Api
-   - Customers.Api: REST + MassTransit CreateCustomer; aggiunto dominio Customer (aggregate root) e PostalAddress (value object), pronti per EF; da fare CustomerService, CustomersRepository, configurazione DbContext/migrations
+   - Customers.Api: completato layer persistenza (CustomersDbContext, CustomersRepository, CustomerService, migration InitialCreate per schema `customers`)
 
 3. **Migliorare RAG**
    - Aggiungere filtri (status, date range)

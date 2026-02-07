@@ -1,15 +1,18 @@
 using Contracts.Commands.Customers;
 using Contracts.Events.Customers;
 using MassTransit;
+using Customers.Api.Services;
 
 namespace Customers.Api.Consumers;
 
 public class CreateCustomerConsumer : IConsumer<CreateCustomer>
 {
+    private readonly CustomerService _customerService;
     private readonly ILogger<CreateCustomerConsumer> _logger;
 
-    public CreateCustomerConsumer(ILogger<CreateCustomerConsumer> logger)
+    public CreateCustomerConsumer(CustomerService customerService, ILogger<CreateCustomerConsumer> logger)
     {
+        _customerService = customerService;
         _logger = logger;
     }
 
@@ -19,25 +22,24 @@ public class CreateCustomerConsumer : IConsumer<CreateCustomer>
 
         try
         {
-            // Placeholder: genera un Id simulato (in un secondo step il CustomerService/aggregate persisterà)
-            var customerId = Guid.NewGuid();
+            var customer = await _customerService.CreateCustomerAsync(context.Message, context.CancellationToken);
 
             await context.Publish(new CustomerCreated
             {
-                CustomerId = customerId,
-                CompanyName = context.Message.CompanyName,
-                DisplayName = context.Message.DisplayName,
-                Email = context.Message.Email,
-                CreatedAt = DateTime.UtcNow
+                CustomerId = customer.Id,
+                CompanyName = customer.CompanyName,
+                DisplayName = customer.DisplayName,
+                Email = customer.Email,
+                CreatedAt = customer.CreatedAt
             });
 
-            _logger.LogInformation("Customer {CustomerId} created via MassTransit", customerId);
+            _logger.LogInformation("Customer {CustomerId} created via MassTransit and persisted", customer.Id);
 
             await context.RespondAsync(new CreateCustomerResponse
             {
-                CustomerId = customerId,
+                CustomerId = customer.Id,
                 Success = true,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = customer.CreatedAt
             });
         }
         catch (Exception ex)

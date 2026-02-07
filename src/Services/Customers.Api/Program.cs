@@ -5,6 +5,7 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Customers.Api.Endpoints;
 using Customers.Api.Infrastructure;
+using Customers.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,6 +20,12 @@ var serviceName = configuration["OpenTelemetry:ServiceName"] ?? "Customers.Api";
 // ===========================================
 builder.Services.AddDbContext<CustomersDbContext>(options =>
     options.UseNpgsql(configuration.GetConnectionString("PostgreSQL")));
+
+// ===========================================
+// Application Services
+// ===========================================
+builder.Services.AddScoped<ICustomersRepository, CustomersRepository>();
+builder.Services.AddScoped<CustomerService>();
 
 // ===========================================
 // MassTransit + RabbitMQ

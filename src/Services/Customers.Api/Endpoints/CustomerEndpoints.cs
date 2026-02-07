@@ -1,7 +1,7 @@
 using Contracts.Commands.Customers;
 using Contracts.ValueObjects.Customers;
-using Customers.Api.Consumers;
-using MassTransit;
+using Customers.Api.Domain;
+using Customers.Api.Services;
 using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace Customers.Api.Endpoints;
@@ -17,14 +17,14 @@ public static class CustomerEndpoints
         group.MapPost("/", CreateCustomer)
             .WithName("CreateCustomer")
             .WithSummary("Create a new customer")
-            .WithDescription("Creates a new customer with company and contact details (DDD Customer aggregate data). Uses MassTransit command; persistence will be added in a later step.")
+            .WithDescription("Creates a new customer with company and contact details (DDD Customer aggregate). Persisted to PostgreSQL schema 'customers'.")
             .Produces<CustomerResponse>(StatusCodes.Status201Created)
             .Produces(StatusCodes.Status400BadRequest);
     }
 
     private static async Task<IResult> CreateCustomer(
         CreateCustomerRequest request,
-        IRequestClient<CreateCustomer> requestClient,
+        CustomerService customerService,
         CancellationToken cancellationToken)
     {
         var command = new CreateCustomer
@@ -35,40 +35,30 @@ public static class CustomerEndpoints
             Phone = request.Phone,
             TaxId = request.TaxId,
             VatNumber = request.VatNumber,
-            BillingAddress = request.BillingAddress != null ? MapToPostalAddress(request.BillingAddress) : null,
-            ShippingAddress = request.ShippingAddress != null ? MapToPostalAddress(request.ShippingAddress) : null,
+            BillingAddress = request.BillingAddress != null ? MapToContractAddress(request.BillingAddress) : null,
+            ShippingAddress = request.ShippingAddress != null ? MapToContractAddress(request.ShippingAddress) : null,
             PreferredLanguage = request.PreferredLanguage,
             PreferredCurrency = request.PreferredCurrency,
             Notes = request.Notes
         };
 
-        var response = await requestClient.GetResponse<CreateCustomerResponse>(command, cancellationToken);
-
-        if (!response.Message.Success)
-            return Results.BadRequest(new { Message = response.Message.ErrorMessage ?? "Create customer failed" });
-
-        var created = response.Message;
-        var body = new CustomerResponse
+        try
         {
-            Id = created.CustomerId,
-            CompanyName = request.CompanyName,
-            DisplayName = request.DisplayName,
-            Email = request.Email,
-            Phone = request.Phone,
-            TaxId = request.TaxId,
-            VatNumber = request.VatNumber,
-            BillingAddress = request.BillingAddress,
-            ShippingAddress = request.ShippingAddress,
-            PreferredLanguage = request.PreferredLanguage,
-            PreferredCurrency = request.PreferredCurrency,
-            Notes = request.Notes,
-            CreatedAt = created.CreatedAt ?? DateTime.UtcNow
-        };
-
-        return Results.Created($"/api/customers/{created.CustomerId}", body);
+            var customer = await customerService.CreateCustomerAsync(command, cancellationToken);
+            var body = MapToResponse(customer);
+            return Results.Created($"/api/customers/{customer.Id}", body);
+        }
+        catch (ArgumentException ex)
+        {
+            return Results.BadRequest(new { Message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return Results.BadRequest(new { Message = ex.Message });
+        }
     }
 
-    private static PostalAddress MapToPostalAddress(PostalAddressDto dto) => new()
+    private static Contracts.ValueObjects.Customers.PostalAddress MapToContractAddress(PostalAddressDto dto) => new()
     {
         RecipientName = dto.RecipientName,
         AddressLine1 = dto.AddressLine1,
@@ -79,5 +69,35 @@ public static class CustomerEndpoints
         CountryCode = dto.CountryCode,
         PhoneNumber = dto.PhoneNumber,
         Notes = dto.Notes
+    };
+
+    private static CustomerResponse MapToResponse(Customer customer) => new()
+    {
+        Id = customer.Id,
+        CompanyName = customer.CompanyName,
+        DisplayName = customer.DisplayName,
+        Email = customer.Email,
+        Phone = customer.Phone,
+        TaxId = customer.TaxId,
+        VatNumber = customer.VatNumber,
+        BillingAddress = customer.BillingAddress != null ? MapToDto(customer.BillingAddress) : null,
+        ShippingAddress = customer.ShippingAddress != null ? MapToDto(customer.ShippingAddress) : null,
+        PreferredLanguage = customer.PreferredLanguage,
+        PreferredCurrency = customer.PreferredCurrency,
+        Notes = customer.Notes,
+        CreatedAt = customer.CreatedAt
+    };
+
+    private static PostalAddressDto MapToDto(Customers.Api.Domain.PostalAddress a) => new()
+    {
+        RecipientName = a.RecipientName,
+        AddressLine1 = a.AddressLine1,
+        AddressLine2 = a.AddressLine2,
+        City = a.City,
+        StateOrProvince = a.StateOrProvince,
+        PostalCode = a.PostalCode,
+        CountryCode = a.CountryCode,
+        PhoneNumber = a.PhoneNumber,
+        Notes = a.Notes
     };
 }
