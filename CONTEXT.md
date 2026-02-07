@@ -140,6 +140,9 @@
 
 ## 🛠️ Tools Creati
 
+### Script wipe-data (infra/scripts)
+- **wipe-data.ps1** / **wipe-data.sh**: cancellano tutti gli ordini e i clienti in PostgreSQL (ordering.order_lines, ordering.orders, customers.customers) e rimuovono le collection Qdrant `orders` e `customers`. Eseguire con infrastruttura Docker attiva (playground-postgres, playground-qdrant).
+
 ### OrderSimulator
 Console app per generare ordini di test:
 ```bash

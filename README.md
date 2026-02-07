@@ -93,6 +93,19 @@ Alternatively, if you have the EF Core tools and migrations are discovered corre
 **Customers API (schema `customers`):**  
 `dotnet ef database update --project src/Services/Customers.Api`
 
+**Wipe all data (orders, customers, Qdrant):**  
+With infrastructure running, from repo root:
+
+```powershell
+.\infra\scripts\wipe-data.ps1
+```
+
+```bash
+./infra/scripts/wipe-data.sh
+```
+
+This deletes all rows in `ordering.order_lines`, `ordering.orders`, and `customers.customers`, and removes Qdrant collections `orders` and `customers`. AI.Processor will recreate the collections when new events arrive.
+
 ### 4. Run .NET Services Locally (Development)
 
 ```powershell
@@ -458,7 +471,9 @@ DistributedPlayground/
 │   │   └── Customers.Api.Dockerfile
 │   └── scripts/
 │       ├── init-ollama.ps1
-│       └── init-ollama.sh
+│       ├── init-ollama.sh
+│       ├── wipe-data.ps1
+│       └── wipe-data.sh
 └── DistributedPlayground.sln
 ```
 
