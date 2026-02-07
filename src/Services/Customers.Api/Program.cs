@@ -118,7 +118,9 @@ app.UseSwaggerUI(options =>
     options.RoutePrefix = "swagger";
 });
 
-app.UseHttpsRedirection();
+// Skip HTTPS redirect in Development so frontend (http://localhost:4200) can call http://localhost:5003
+if (!app.Environment.IsDevelopment())
+    app.UseHttpsRedirection();
 
 // Health check endpoint
 app.MapHealthChecks("/health");
