@@ -224,7 +224,8 @@ CreateOrder ──▶ StartProcessing ──▶ Ship ──▶ Deliver ──▶
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/api/customers` | Create a new customer (DDD-style data; persistence in a later step) |
+| `GET` | `/api/customers/{id}` | Get customer by ID (used by AI.Processor for RAG indexing) |
+| `POST` | `/api/customers` | Create a new customer (DDD-style data) |
 
 ### MassTransit Consumers (RabbitMQ)
 
@@ -288,21 +289,22 @@ curl -X POST http://localhost:5010/api/ai/search \
 ### Features
 
 - **REST API**: Full Swagger-documented API for AI interactions
-- **Event Consumption**: Listens to all Ordering domain events via MassTransit/RabbitMQ
+- **Event Consumption**: Listens to Ordering and Customers domain events via MassTransit/RabbitMQ (e.g. OrderCreated, CustomerCreated)
 - **LLM Integration**: Uses Ollama for text generation and event analysis
-- **Vector Storage**: Stores order embeddings in Qdrant for semantic search
+- **Vector Storage**: Stores order and customer embeddings in Qdrant (collections `orders`, `customers`) for semantic search
 - **Distributed Tracing**: Full OpenTelemetry integration with Jaeger
 
 ### Event Consumers
 
 | Consumer | Event | Processing |
 |----------|-------|------------|
-| `OrderCreatedConsumer` | `OrderCreated` | Generate embedding, store in Qdrant, analyze with LLM |
+| `OrderCreatedConsumer` | `OrderCreated` | Fetch order via REST, generate embedding, store in Qdrant, analyze with LLM |
 | `OrderStatusChangedConsumer` | `OrderStatusChanged` | Update vector store, analyze status transition |
 | `OrderShippedConsumer` | `OrderShipped` | Store shipping details, analyze logistics |
 | `OrderDeliveredConsumer` | `OrderDelivered` | Update delivery status, completion analysis |
 | `OrderCancelledConsumer` | `OrderCancelled` | Analyze cancellation reasons for insights |
 | `OrderCompletedConsumer` | `OrderCompleted` | Generate order summary, final embedding |
+| `CustomerCreatedConsumer` | `CustomerCreated` | Fetch customer via REST, generate embedding, store in Qdrant (collection `customers`), analyze with LLM |
 
 ### Configuration
 

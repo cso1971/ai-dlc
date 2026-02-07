@@ -26,6 +26,17 @@ builder.Services.AddHttpClient<IOrderApiClient, OrderApiClient>(client =>
     .HandleTransientHttpError()
     .WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt))));
 
+// ===== Customers API Client with Polly =====
+builder.Services.AddHttpClient<ICustomerApiClient, CustomerApiClient>(client =>
+{
+    var baseUrl = builder.Configuration["CustomersApi:BaseUrl"] ?? "http://localhost:5003";
+    client.BaseAddress = new Uri(baseUrl);
+    client.DefaultRequestHeaders.Add("Accept", "application/json");
+})
+.AddPolicyHandler(HttpPolicyExtensions
+    .HandleTransientHttpError()
+    .WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt))));
+
 // ===== Swagger/OpenAPI =====
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
@@ -52,6 +63,7 @@ builder.Services.AddMassTransit(x =>
     x.AddConsumer<OrderDeliveredConsumer>();
     x.AddConsumer<OrderCancelledConsumer>();
     x.AddConsumer<OrderCompletedConsumer>();
+    x.AddConsumer<CustomerCreatedConsumer>();
 
     x.SetKebabCaseEndpointNameFormatter();
 

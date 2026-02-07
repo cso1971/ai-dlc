@@ -13,6 +13,14 @@ public static class CustomerEndpoints
         var group = app.MapGroup("/api/customers")
             .WithTags("Customers");
 
+        // GET /api/customers/{id}
+        group.MapGet("/{id:guid}", GetCustomerById)
+            .WithName("GetCustomerById")
+            .WithSummary("Get customer by ID")
+            .WithDescription("Returns the full customer details by ID.")
+            .Produces<CustomerResponse>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status404NotFound);
+
         // POST /api/customers
         group.MapPost("/", CreateCustomer)
             .WithName("CreateCustomer")
@@ -20,6 +28,14 @@ public static class CustomerEndpoints
             .WithDescription("Creates a new customer with company and contact details (DDD Customer aggregate). Persisted to PostgreSQL schema 'customers'.")
             .Produces<CustomerResponse>(StatusCodes.Status201Created)
             .Produces(StatusCodes.Status400BadRequest);
+    }
+
+    private static async Task<IResult> GetCustomerById(Guid id, CustomerService customerService, CancellationToken cancellationToken)
+    {
+        var customer = await customerService.GetByIdAsync(id, cancellationToken);
+        if (customer == null)
+            return Results.NotFound(new { Message = $"Customer {id} not found" });
+        return Results.Ok(MapToResponse(customer));
     }
 
     private static async Task<IResult> CreateCustomer(

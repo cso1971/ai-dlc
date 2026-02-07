@@ -89,8 +89,9 @@
 
 ### 2. **AI.Processor come servizio separato**
 - Disaccoppia elaborazione AI dal dominio business
-- Consuma eventi da RabbitMQ
+- Consuma eventi da RabbitMQ (OrderCreated, CustomerCreated, ecc.)
 - Espone REST API per chat/search
+- Indicia ordini e clienti in Qdrant (collections `orders`, `customers`) per RAG
 
 ### 3. **RAG implementato nel chat endpoint**
 - `/api/ai/chat` cerca prima in Qdrant

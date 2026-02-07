@@ -9,6 +9,7 @@ public class QdrantService : IQdrantService
 {
     private readonly QdrantClient _client;
     private readonly string _collectionName;
+    private readonly string _customersCollectionName;
     private readonly ILogger<QdrantService> _logger;
     private const int VectorSize = 768; // nomic-embed-text dimension
 
@@ -18,10 +19,11 @@ public class QdrantService : IQdrantService
         var host = configuration["Qdrant:Host"] ?? "localhost";
         var port = int.Parse(configuration["Qdrant:Port"] ?? "6334");
         _collectionName = configuration["Qdrant:CollectionName"] ?? "orders";
+        _customersCollectionName = configuration["Qdrant:CustomersCollectionName"] ?? "customers";
 
         _client = new QdrantClient(host, port);
-        _logger.LogInformation("QdrantService initialized with endpoint {Host}:{Port}, collection {Collection}", 
-            host, port, _collectionName);
+        _logger.LogInformation("QdrantService initialized with endpoint {Host}:{Port}, collections: {Orders}, {Customers}",
+            host, port, _collectionName, _customersCollectionName);
     }
 
     public async Task EnsureCollectionExistsAsync(CancellationToken cancellationToken = default)
@@ -142,6 +144,78 @@ public class QdrantService : IQdrantService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error deleting order {OrderId}", orderId);
+            throw;
+        }
+    }
+
+    public async Task EnsureCustomersCollectionExistsAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var collections = await _client.ListCollectionsAsync(cancellationToken);
+            if (collections.Any(c => c == _customersCollectionName))
+            {
+                _logger.LogDebug("Collection {Collection} already exists", _customersCollectionName);
+                return;
+            }
+
+            await _client.CreateCollectionAsync(
+                _customersCollectionName,
+                new VectorParams
+                {
+                    Size = VectorSize,
+                    Distance = Distance.Cosine
+                },
+                cancellationToken: cancellationToken);
+
+            _logger.LogInformation("Created collection {Collection} with vector size {Size}", _customersCollectionName, VectorSize);
+        }
+        catch (Exception ex)
+        {
+            if (ex.Message.Contains("AlreadyExists", StringComparison.OrdinalIgnoreCase) ||
+                ex.Message.Contains("already exists", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogDebug("Collection {Collection} already exists (created by concurrent consumer)", _customersCollectionName);
+                return;
+            }
+            _logger.LogError(ex, "Error ensuring customers collection exists");
+            throw;
+        }
+    }
+
+    public async Task UpsertCustomerAsync(Guid customerId, float[] embedding, Dictionary<string, object> payload, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await EnsureCustomersCollectionExistsAsync(cancellationToken);
+
+            var point = new PointStruct
+            {
+                Id = new PointId { Uuid = customerId.ToString() },
+                Vectors = embedding
+            };
+
+            foreach (var (key, value) in payload)
+            {
+                point.Payload[key] = value switch
+                {
+                    string s => s,
+                    int i => i,
+                    long l => l,
+                    double d => d,
+                    bool b => b,
+                    DateTime dt => dt.ToString("O"),
+                    Guid g => g.ToString(),
+                    _ => value.ToString() ?? string.Empty
+                };
+            }
+
+            await _client.UpsertAsync(_customersCollectionName, [point], cancellationToken: cancellationToken);
+            _logger.LogDebug("Upserted customer {CustomerId} to collection {Collection}", customerId, _customersCollectionName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error upserting customer {CustomerId}", customerId);
             throw;
         }
     }
