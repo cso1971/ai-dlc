@@ -547,7 +547,7 @@ npm start
 The AI Chat panel is always visible in the bottom-right corner. You can choose the chat backend:
 
 - **RAG** (default): Connects to AI.Processor (Qdrant + Ollama). Chat, Search Orders, and Analyze are all available.
-- **Semantic Kernel**: Connects to Orchestrator.Api (Ollama + plugins). Only Chat is available; Search and Analyze are disabled in this mode.
+- **Semantic Kernel**: Connects to Orchestrator.Api (Ollama + plugins). Only Chat is available; Search and Analyze are disabled in this mode. You can ask to create a customer (e.g. “crea un cliente Acme SPA con email x@y.it”) and the assistant will call the plugin to send the command.
 
 Click the 🤖 button to open/close the panel. Use "Chat with: RAG" or "Chat with: Semantic Kernel" to switch backends.
 

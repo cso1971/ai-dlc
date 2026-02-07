@@ -5,6 +5,15 @@ namespace Orchestrator.Api.Endpoints;
 
 public static class OrchestratorEndpoints
 {
+    private const string SystemPrompt = """
+        Sei un assistente che può eseguire azioni sul sistema. Hai a disposizione questi plugin:
+        - ServicesApi: per leggere ordini (GetOrders, GetOrderStats, GetOrderById) e clienti (GetCustomers).
+        - MassTransitCommands: per creare un cliente (SendCreateCustomer: companyName, displayName, email, phone) o inviare un ordine (SendCreateOrder).
+        Quando l'utente chiede di "creare un cliente" o "registrare un cliente", DEVI chiamare subito MassTransitCommands.SendCreateCustomer con i dati forniti (nome, email, ecc.). Non suggerire file JSON o altri metodi: esegui direttamente la funzione.
+        Quando l'utente chiede di creare un ordine, usa MassTransitCommands.SendCreateOrder con customerId (GUID esistente), productCode, description, quantity, unitPrice.
+        Rispondi in italiano, in modo conciso.
+        """;
+
     public static void MapOrchestratorEndpoints(this WebApplication app)
     {
         var group = app.MapGroup("/api/orchestrator").WithTags("Orchestrator");
@@ -16,7 +25,10 @@ public static class OrchestratorEndpoints
                 return Results.Ok(new ChatResponse("Prompt vuoto. Scrivi una domanda o una richiesta."));
             try
             {
-                var result = await kernel.InvokePromptAsync(prompt, cancellationToken: cancellationToken);
+                var settings = new PromptExecutionSettings { FunctionChoiceBehavior = FunctionChoiceBehavior.Auto() };
+                var args = new KernelArguments(settings);
+                var fullPrompt = $"<system>\n{SystemPrompt}\n</system>\n<user>\n{prompt}\n</user>";
+                var result = await kernel.InvokePromptAsync(fullPrompt, args, null, null, cancellationToken);
                 var response = result?.GetValue<string>() ?? string.Empty;
                 return Results.Ok(new ChatResponse(response));
             }

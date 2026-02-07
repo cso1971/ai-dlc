@@ -111,6 +111,7 @@
 - Nuovo servizio che usa **Semantic Kernel** con **Ollama** (solo LLM locale, nessuna chiamata a API esterne).
 - Espone REST (`POST /api/orchestrator/chat`) e consumer MassTransit per comando `RequestOrchestration` (queue `request-orchestration`).
 - **Plugin**: `ServicesApi` (chiamate HTTP a Ordering.Api e Customers.Api: ordini, stats, clienti); `MassTransitCommands` (invio comandi `CreateOrder`, `CreateCustomer` su code MassTransit). Il plugin usa **IBus** (singleton) invece di ISendEndpointProvider (scoped) così il Kernel può restare singleton.
+- **Chat**: uso di **PromptExecutionSettings** con **FunctionChoiceBehavior.Auto()** per abilitare l’auto-invocazione delle funzioni; **system prompt** che istruisce il modello a usare i plugin (es. SendCreateCustomer quando l’utente chiede di creare un cliente) e a non suggerire JSON o altri metodi.
 - Il kernel può quindi sia leggere dati (ordini, clienti) sia inviare comandi (es. crea ordine, crea cliente) in base al prompt.
 
 ### 6. **Embedding vs Analisi AI**
@@ -148,6 +149,11 @@
 **Problema**: `Cannot resolve 'Orchestrator.Api.Plugins.MassTransitCommandsPlugin' from root provider because it requires scoped service 'MassTransit.ISendEndpointProvider'.`
 **Causa**: Il Kernel è registrato come singleton e alla costruzione risolve i plugin dal root provider; `ISendEndpointProvider` in MassTransit è scoped, quindi non risolvibile dal root.
 **Soluzione**: In `MassTransitCommandsPlugin` usare **IBus** invece di `ISendEndpointProvider`. `IBus` è singleton e espone `GetSendEndpoint`, così il plugin può essere risolto quando si costruisce il Kernel.
+
+### Chat Semantic Kernel non crea il cliente (risponde con JSON)
+**Problema**: Alla richiesta "crea un cliente Acme SPA" il chatbot rispondeva suggerendo un file JSON invece di eseguire la creazione.
+**Causa**: (1) Nessuna **execution settings** con function calling: il modello non riceveva l’indicazione di invocare le funzioni. (2) Nessun **system prompt** che obbligasse a usare i plugin invece di rispondere in modo generico.
+**Soluzione**: In `OrchestratorEndpoints` per `/chat`: usare **PromptExecutionSettings** con **FunctionChoiceBehavior.Auto()** e passare **KernelArguments(settings)** a **InvokePromptAsync**; aggiungere un **system prompt** (incluso nel testo del prompt con tag `<system>`/`<user>`) che descrive i plugin e ordina esplicitamente di chiamare **MassTransitCommands.SendCreateCustomer** quando l’utente chiede di creare un cliente, senza suggerire JSON.
 
 ---
 
