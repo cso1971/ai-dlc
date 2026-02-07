@@ -635,11 +635,11 @@ dotnet run --project src/Tools/OrderSimulator -- --help
 | `--rabbit-host` | | RabbitMQ host | localhost |
 | `--rabbit-user` | | RabbitMQ username | playground |
 | `--rabbit-password` | | RabbitMQ password | playground_pwd |
-| `--customers-api` | | Customers API base URL (create/fetch customers) | http://localhost:5003 |
+| `--customers-api` | | Customers API base URL (only to fetch customer list after creation) | http://localhost:5003 |
 
 ### Simulation Phases
 
-0. **Create Customers (if none)**: If no active customers exist, creates `--customers` (default 10) via Customers API (POST), then uses their IDs for orders.
+0. **Create Customers (if none)**: If no active customers exist, sends `--customers` (default 10) **CreateCustomer** commands via MassTransit/RabbitMQ (`queue:create-customer`); then fetches the created customer IDs from Customers API (GET) for orders. This ensures **CustomerCreated** events are published and consumed by AI.Processor for Qdrant.
 1. **Create Orders**: Uses active customer IDs (from Phase 0 or existing), generates random orders (products, addresses) assigning each order to a random customer.
 2. **Fetch Orders**: Gets created order IDs from Ordering API
 3. **Workflow Transitions**: Randomly applies:
@@ -651,7 +651,7 @@ dotnet run --project src/Tools/OrderSimulator -- --help
 
 ### Prerequisites
 
-- **Customers.Api** on `http://localhost:5003`: required. If no customers exist, the simulator creates some (see `--customers`); otherwise it uses existing ones.
+- **Customers.Api** on `http://localhost:5003`: required to fetch the list of customers (after creating via MassTransit or when reusing existing ones). If no customers exist, the simulator sends CreateCustomer commands via RabbitMQ, then GETs the list.
 - **Ordering.Api** on `http://localhost:5001`: required for workflow simulation (fetch created orders and apply transitions).
 
 ## Development Notes

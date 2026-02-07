@@ -146,6 +146,7 @@ Console app per generare ordini di test:
 dotnet run --project src/Tools/OrderSimulator -- -n 50 -w false
 ```
 - `-n`: numero ordini
+- `-c`/`--customers`: numero clienti da creare se non ne esistono (default 10); inviati come comandi **CreateCustomer** su MassTransit (`queue:create-customer`), così **CustomerCreated** viene pubblicato e consumato da AI.Processor per Qdrant
 - `-w`: simula workflow (Start → Ship → Deliver → Invoice)
 - `-d`: delay tra ordini (ms)
 

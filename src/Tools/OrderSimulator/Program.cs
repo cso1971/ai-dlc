@@ -2,7 +2,9 @@ using System.CommandLine;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Bogus;
+using Contracts.Commands.Customers;
 using Contracts.Commands.Ordering;
+using Contracts.ValueObjects.Customers;
 using Contracts.ValueObjects.Ordering;
 using MassTransit;
 using Microsoft.Extensions.DependencyInjection;
@@ -40,6 +42,28 @@ var orderFaker = new Faker<CreateOrder>()
     .RuleFor(x => x.ShippingAddress, f => addressFaker.Generate())
     .RuleFor(x => x.Notes, f => f.Random.Bool(0.3f) ? f.Lorem.Sentence() : null)
     .RuleFor(x => x.Lines, f => productFaker.Generate(f.Random.Int(1, 5)));
+
+var customerPostalFaker = new Faker<PostalAddress>()
+    .RuleFor(x => x.RecipientName, f => f.Name.FullName())
+    .RuleFor(x => x.AddressLine1, f => f.Address.StreetAddress())
+    .RuleFor(x => x.AddressLine2, f => f.Random.Bool(0.3f) ? f.Address.SecondaryAddress() : null)
+    .RuleFor(x => x.City, f => f.Address.City())
+    .RuleFor(x => x.StateOrProvince, f => f.Address.State())
+    .RuleFor(x => x.PostalCode, f => f.Address.ZipCode())
+    .RuleFor(x => x.CountryCode, f => f.PickRandom("IT", "DE", "FR", "ES", "US", "UK", "NL", "BE"))
+    .RuleFor(x => x.PhoneNumber, f => f.Phone.PhoneNumber())
+    .RuleFor(x => x.Notes, f => f.Random.Bool(0.2f) ? f.Lorem.Sentence() : null);
+
+var createCustomerFaker = new Faker<CreateCustomer>()
+    .RuleFor(x => x.CompanyName, f => f.Company.CompanyName())
+    .RuleFor(x => x.DisplayName, f => f.Company.CompanyName(1))
+    .RuleFor(x => x.Email, f => f.Internet.Email())
+    .RuleFor(x => x.Phone, f => f.Phone.PhoneNumber())
+    .RuleFor(x => x.PreferredLanguage, f => f.PickRandom("en", "it", "de", "fr"))
+    .RuleFor(x => x.PreferredCurrency, f => f.PickRandom("EUR", "USD", "GBP"))
+    .RuleFor(x => x.BillingAddress, f => f.Random.Bool(0.7f) ? customerPostalFaker.Generate() : null)
+    .RuleFor(x => x.ShippingAddress, f => f.Random.Bool(0.7f) ? customerPostalFaker.Generate() : null)
+    .RuleFor(x => x.Notes, f => f.Random.Bool(0.2f) ? f.Lorem.Sentence() : null);
 
 // ===== CLI Options =====
 var ordersOption = new Option<int>(
@@ -112,70 +136,7 @@ rootCommand.SetHandler(async (int orders, int customersToCreate, bool simulateWo
     Console.WriteLine($"  👥 Customers API: {customersApi}");
     Console.WriteLine();
 
-    // Customers API client
-    var customersHttp = new HttpClient { BaseAddress = new Uri(customersApi.TrimEnd('/') + "/") };
-    List<Guid> customerIds;
-    try
-    {
-        var existing = await customersHttp.GetFromJsonAsync<List<CustomerSummaryDto>>("api/customers");
-        customerIds = (existing ?? new List<CustomerSummaryDto>())
-            .Where(c => c.IsActive)
-            .Select(c => c.Id)
-            .ToList();
-
-        if (customerIds.Count == 0 && customersToCreate > 0)
-        {
-            // Phase 0: Create customers first
-            Console.WriteLine("═══════════════════════════════════════════════════════════════");
-            Console.WriteLine($"  PHASE 0: Creating {customersToCreate} Customers");
-            Console.WriteLine("═══════════════════════════════════════════════════════════════");
-            var customerFaker = new Faker<CreateCustomerRequestDto>()
-                .RuleFor(x => x.CompanyName, f => f.Company.CompanyName())
-                .RuleFor(x => x.DisplayName, f => f.Company.CompanyName(1))
-                .RuleFor(x => x.Email, f => f.Internet.Email())
-                .RuleFor(x => x.Phone, f => f.Phone.PhoneNumber())
-                .RuleFor(x => x.PreferredLanguage, f => f.PickRandom("en", "it", "de", "fr"))
-                .RuleFor(x => x.PreferredCurrency, f => f.PickRandom("EUR", "USD", "GBP"));
-            for (int i = 1; i <= customersToCreate; i++)
-            {
-                var req = customerFaker.Generate();
-                var response = await customersHttp.PostAsJsonAsync("api/customers", req);
-                if (!response.IsSuccessStatusCode)
-                {
-                    Console.WriteLine($"⚠️  Failed to create customer {i}: {response.StatusCode}");
-                    continue;
-                }
-                var created = await response.Content.ReadFromJsonAsync<CreateCustomerResponseDto>();
-                if (created != null)
-                {
-                    customerIds.Add(created.Id);
-                    Console.WriteLine($"  [{i:D2}/{customersToCreate}] 👤 {req.CompanyName} ({req.Email})");
-                }
-                await Task.Delay(delay);
-            }
-            Console.WriteLine($"✅ Created {customerIds.Count} customer(s)");
-            Console.WriteLine();
-        }
-        else if (customerIds.Count == 0)
-        {
-            Console.WriteLine("⚠️  No active customers found. Use --customers 10 to create some, or create via frontend.");
-            return;
-        }
-        else
-        {
-            Console.WriteLine($"✅ Using {customerIds.Count} existing customer(s)");
-        }
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"⚠️  Could not load/create customers from {customersApi}: {ex.Message}");
-        Console.WriteLine("    Make sure Customers.Api is running (e.g. http://localhost:5003)");
-        return;
-    }
-
-    var random = new Random();
-
-    // Setup MassTransit
+    // Setup MassTransit first (used for CreateCustomer and CreateOrder)
     var services = new ServiceCollection();
     services.AddMassTransit(x =>
     {
@@ -191,10 +152,65 @@ rootCommand.SetHandler(async (int orders, int customersToCreate, bool simulateWo
 
     var provider = services.BuildServiceProvider();
     var busControl = provider.GetRequiredService<IBusControl>();
-    
     await busControl.StartAsync();
     Console.WriteLine("✅ Connected to RabbitMQ");
     Console.WriteLine();
+
+    var customersHttp = new HttpClient { BaseAddress = new Uri(customersApi.TrimEnd('/') + "/") };
+    List<Guid> customerIds;
+    try
+    {
+        var existing = await customersHttp.GetFromJsonAsync<List<CustomerSummaryDto>>("api/customers");
+        customerIds = (existing ?? new List<CustomerSummaryDto>())
+            .Where(c => c.IsActive)
+            .Select(c => c.Id)
+            .ToList();
+
+        if (customerIds.Count == 0 && customersToCreate > 0)
+        {
+            // Phase 0: Create customers via MassTransit (CreateCustomer command)
+            Console.WriteLine("═══════════════════════════════════════════════════════════════");
+            Console.WriteLine($"  PHASE 0: Creating {customersToCreate} Customers (via RabbitMQ)");
+            Console.WriteLine("═══════════════════════════════════════════════════════════════");
+            var createCustomerEndpoint = await busControl.GetSendEndpoint(new Uri("queue:create-customer"));
+            for (int i = 1; i <= customersToCreate; i++)
+            {
+                var cmd = createCustomerFaker.Generate();
+                await createCustomerEndpoint.Send(cmd);
+                Console.WriteLine($"  [{i:D2}/{customersToCreate}] 👤 {cmd.CompanyName} ({cmd.Email})");
+                await Task.Delay(delay);
+            }
+            Console.WriteLine($"✅ Sent {customersToCreate} CreateCustomer command(s)");
+            Console.WriteLine("⏳ Waiting 3 seconds for customers to be created...");
+            await Task.Delay(3000);
+            var afterCreate = await customersHttp.GetFromJsonAsync<List<CustomerSummaryDto>>("api/customers");
+            customerIds = (afterCreate ?? new List<CustomerSummaryDto>())
+                .Where(c => c.IsActive)
+                .Select(c => c.Id)
+                .ToList();
+            Console.WriteLine($"✅ Retrieved {customerIds.Count} customer(s) from API");
+            Console.WriteLine();
+        }
+        else if (customerIds.Count == 0)
+        {
+            Console.WriteLine("⚠️  No active customers found. Use --customers 10 to create some, or create via frontend.");
+            await busControl.StopAsync();
+            return;
+        }
+        else
+        {
+            Console.WriteLine($"✅ Using {customerIds.Count} existing customer(s)");
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"⚠️  Could not load/create customers: {ex.Message}");
+        Console.WriteLine("    Make sure Customers.Api is running (e.g. http://localhost:5003) and RabbitMQ is up.");
+        await busControl.StopAsync();
+        return;
+    }
+
+    var random = new Random();
 
     var createdOrderIds = new List<Guid>();
     var sendEndpoint = await busControl.GetSendEndpoint(new Uri("queue:create-order"));
@@ -413,22 +429,7 @@ rootCommand.SetHandler(async (int orders, int customersToCreate, bool simulateWo
 
 return await rootCommand.InvokeAsync(args);
 
-// ===== DTOs for Customers API =====
-record CreateCustomerRequestDto
-{
-    public string CompanyName { get; init; } = "";
-    public string? DisplayName { get; init; }
-    public string Email { get; init; } = "";
-    public string? Phone { get; init; }
-    public string? TaxId { get; init; }
-    public string? VatNumber { get; init; }
-    public string PreferredLanguage { get; init; } = "en";
-    public string PreferredCurrency { get; init; } = "EUR";
-    public string? Notes { get; init; }
-}
-
-record CreateCustomerResponseDto(Guid Id);
-
+// ===== DTOs for Customers API (GET list) =====
 record CustomerSummaryDto(Guid Id, string CompanyName, string? DisplayName, string Email, DateTime CreatedAt, bool IsActive);
 
 // ===== DTOs for Ordering API =====
