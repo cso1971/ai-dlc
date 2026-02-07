@@ -28,6 +28,13 @@ namespace Customers.Api.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("CancellationReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("CompanyName")
                         .IsRequired()
                         .HasMaxLength(200)

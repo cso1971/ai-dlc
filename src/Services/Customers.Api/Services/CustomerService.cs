@@ -31,4 +31,24 @@ public class CustomerService
     {
         return await _repository.GetAllAsync(cancellationToken);
     }
+
+    public async Task<Customer?> UpdateCustomerAsync(UpdateCustomer command, CancellationToken cancellationToken = default)
+    {
+        var customer = await _repository.GetByIdAsync(command.CustomerId, cancellationToken);
+        if (customer == null) return null;
+        customer.ApplyUpdate(command);
+        await _repository.UpdateAsync(customer, cancellationToken);
+        _logger.LogInformation("Customer {CustomerId} updated", command.CustomerId);
+        return customer;
+    }
+
+    public async Task<Customer?> CancelCustomerAsync(CancelCustomer command, CancellationToken cancellationToken = default)
+    {
+        var customer = await _repository.GetByIdAsync(command.CustomerId, cancellationToken);
+        if (customer == null) return null;
+        customer.Cancel(command.CancellationReason);
+        await _repository.UpdateAsync(customer, cancellationToken);
+        _logger.LogInformation("Customer {CustomerId} cancelled", command.CustomerId);
+        return customer;
+    }
 }

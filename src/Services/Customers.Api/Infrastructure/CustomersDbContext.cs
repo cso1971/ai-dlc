@@ -58,6 +58,9 @@ public class CustomersDbContext : DbContext
             entity.Property(e => e.CreatedAt)
                 .IsRequired();
 
+            entity.Property(e => e.CancellationReason)
+                .HasMaxLength(1000);
+
             // BillingAddress as owned entity
             entity.OwnsOne(e => e.BillingAddress, address =>
             {

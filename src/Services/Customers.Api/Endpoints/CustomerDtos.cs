@@ -16,6 +16,27 @@ public record CreateCustomerRequest
     public string? Notes { get; init; }
 }
 
+/// <summary>Partial update: only set properties you want to change.</summary>
+public record UpdateCustomerRequest
+{
+    public string? CompanyName { get; init; }
+    public string? DisplayName { get; init; }
+    public string? Email { get; init; }
+    public string? Phone { get; init; }
+    public string? TaxId { get; init; }
+    public string? VatNumber { get; init; }
+    public PostalAddressDto? BillingAddress { get; init; }
+    public PostalAddressDto? ShippingAddress { get; init; }
+    public string? PreferredLanguage { get; init; }
+    public string? PreferredCurrency { get; init; }
+    public string? Notes { get; init; }
+}
+
+public record CancelCustomerRequest
+{
+    public string CancellationReason { get; init; } = string.Empty;
+}
+
 public record PostalAddressDto
 {
     public string RecipientName { get; init; } = string.Empty;
@@ -45,4 +66,8 @@ public record CustomerResponse
     public string PreferredCurrency { get; init; } = string.Empty;
     public string? Notes { get; init; }
     public DateTime CreatedAt { get; init; }
+    public DateTime? UpdatedAt { get; init; }
+    public DateTime? CancelledAt { get; init; }
+    public string? CancellationReason { get; init; }
+    public bool IsActive { get; init; }
 }

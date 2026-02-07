@@ -21,6 +21,24 @@ public static class CustomerEndpoints
             .Produces<CustomerResponse>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status404NotFound);
 
+        // PUT /api/customers/{id}
+        group.MapPut("/{id:guid}", UpdateCustomer)
+            .WithName("UpdateCustomer")
+            .WithSummary("Update a customer")
+            .WithDescription("Partial update: only provided fields are changed. Cannot update a cancelled customer.")
+            .Produces<CustomerResponse>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status404NotFound);
+
+        // POST /api/customers/{id}/cancel
+        group.MapPost("/{id:guid}/cancel", CancelCustomer)
+            .WithName("CancelCustomer")
+            .WithSummary("Cancel a customer (soft delete)")
+            .WithDescription("Marks the customer as cancelled with a reason. Idempotent if already cancelled.")
+            .Produces<CustomerResponse>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status404NotFound);
+
         // POST /api/customers
         group.MapPost("/", CreateCustomer)
             .WithName("CreateCustomer")
@@ -36,6 +54,73 @@ public static class CustomerEndpoints
         if (customer == null)
             return Results.NotFound(new { Message = $"Customer {id} not found" });
         return Results.Ok(MapToResponse(customer));
+    }
+
+    private static async Task<IResult> UpdateCustomer(
+        Guid id,
+        UpdateCustomerRequest request,
+        CustomerService customerService,
+        CancellationToken cancellationToken)
+    {
+        var command = new Contracts.Commands.Customers.UpdateCustomer
+        {
+            CustomerId = id,
+            CompanyName = request.CompanyName,
+            DisplayName = request.DisplayName,
+            Email = request.Email,
+            Phone = request.Phone,
+            TaxId = request.TaxId,
+            VatNumber = request.VatNumber,
+            BillingAddress = request.BillingAddress != null ? MapToContractAddress(request.BillingAddress) : null,
+            ShippingAddress = request.ShippingAddress != null ? MapToContractAddress(request.ShippingAddress) : null,
+            PreferredLanguage = request.PreferredLanguage,
+            PreferredCurrency = request.PreferredCurrency,
+            Notes = request.Notes
+        };
+
+        try
+        {
+            var customer = await customerService.UpdateCustomerAsync(command, cancellationToken);
+            if (customer == null)
+                return Results.NotFound(new { Message = $"Customer {id} not found" });
+            return Results.Ok(MapToResponse(customer));
+        }
+        catch (ArgumentException ex)
+        {
+            return Results.BadRequest(new { Message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Results.BadRequest(new { Message = ex.Message });
+        }
+    }
+
+    private static async Task<IResult> CancelCustomer(
+        Guid id,
+        CancelCustomerRequest request,
+        CustomerService customerService,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.CancellationReason))
+            return Results.BadRequest(new { Message = "CancellationReason is required" });
+
+        var command = new Contracts.Commands.Customers.CancelCustomer
+        {
+            CustomerId = id,
+            CancellationReason = request.CancellationReason
+        };
+
+        try
+        {
+            var customer = await customerService.CancelCustomerAsync(command, cancellationToken);
+            if (customer == null)
+                return Results.NotFound(new { Message = $"Customer {id} not found" });
+            return Results.Ok(MapToResponse(customer));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Results.BadRequest(new { Message = ex.Message });
+        }
     }
 
     private static async Task<IResult> CreateCustomer(
@@ -101,7 +186,11 @@ public static class CustomerEndpoints
         PreferredLanguage = customer.PreferredLanguage,
         PreferredCurrency = customer.PreferredCurrency,
         Notes = customer.Notes,
-        CreatedAt = customer.CreatedAt
+        CreatedAt = customer.CreatedAt,
+        UpdatedAt = customer.UpdatedAt,
+        CancelledAt = customer.CancelledAt,
+        CancellationReason = customer.CancellationReason,
+        IsActive = customer.IsActive
     };
 
     private static PostalAddressDto MapToDto(Customers.Api.Domain.PostalAddress a) => new()

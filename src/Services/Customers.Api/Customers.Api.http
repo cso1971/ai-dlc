@@ -7,6 +7,11 @@ Accept: application/json
 ### Health
 GET {{Customers.Api_HostAddress}}/health
 
+### Get customer by ID (replace with actual ID from create response)
+@customerId = 00000000-0000-0000-0000-000000000000
+GET {{Customers.Api_HostAddress}}/api/customers/{{customerId}}
+Accept: application/json
+
 ### Create customer (REST -> MassTransit command)
 POST {{Customers.Api_HostAddress}}/api/customers
 Content-Type: application/json
@@ -33,4 +38,22 @@ Content-Type: application/json
   "preferredLanguage": "it",
   "preferredCurrency": "EUR",
   "notes": "First customer"
+}
+
+### Update customer (partial – only set fields to change; replace id)
+PUT {{Customers.Api_HostAddress}}/api/customers/{{customerId}}
+Content-Type: application/json
+
+{
+  "displayName": "Acme Italy",
+  "phone": "+39 02 9876543",
+  "notes": "Updated contact"
+}
+
+### Cancel customer (soft delete; replace id)
+POST {{Customers.Api_HostAddress}}/api/customers/{{customerId}}/cancel
+Content-Type: application/json
+
+{
+  "cancellationReason": "Customer requested account closure"
 }

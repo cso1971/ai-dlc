@@ -21,6 +21,10 @@ public class Customer
     public string? Notes { get; private set; }
     public DateTime CreatedAt { get; private set; }
     public DateTime? UpdatedAt { get; private set; }
+    public DateTime? CancelledAt { get; private set; }
+    public string? CancellationReason { get; private set; }
+
+    public bool IsActive => CancelledAt == null;
 
     private Customer() { } // Per EF Core
 
@@ -112,6 +116,59 @@ public class Customer
     public void SetNotes(string? notes)
     {
         Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    public void UpdateCompany(string? companyName, string? displayName)
+    {
+        if (companyName != null)
+        {
+            if (string.IsNullOrWhiteSpace(companyName))
+                throw new ArgumentException("Company name cannot be empty.", nameof(companyName));
+            CompanyName = companyName.Trim();
+        }
+        if (displayName != null)
+            DisplayName = string.IsNullOrWhiteSpace(displayName) ? null : displayName.Trim();
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Applica aggiornamento parziale da comando (solo campi valorizzati).
+    /// </summary>
+    public void ApplyUpdate(Contracts.Commands.Customers.UpdateCustomer command)
+    {
+        if (CancelledAt.HasValue)
+            throw new InvalidOperationException("Cannot update a cancelled customer.");
+
+        if (command.CompanyName != null) CompanyName = string.IsNullOrWhiteSpace(command.CompanyName) ? CompanyName : command.CompanyName.Trim();
+        if (command.DisplayName != null) DisplayName = string.IsNullOrWhiteSpace(command.DisplayName) ? null : command.DisplayName.Trim();
+        if (command.Email != null)
+        {
+            if (string.IsNullOrWhiteSpace(command.Email))
+                throw new ArgumentException("Email cannot be empty.", nameof(command.Email));
+            Email = command.Email.Trim();
+        }
+        if (command.Phone != null) Phone = string.IsNullOrWhiteSpace(command.Phone) ? null : command.Phone.Trim();
+        if (command.TaxId != null) TaxId = string.IsNullOrWhiteSpace(command.TaxId) ? null : command.TaxId.Trim();
+        if (command.VatNumber != null) VatNumber = string.IsNullOrWhiteSpace(command.VatNumber) ? null : command.VatNumber.Trim();
+        if (command.BillingAddress != null) BillingAddress = PostalAddress.FromContract(command.BillingAddress);
+        if (command.ShippingAddress != null) ShippingAddress = PostalAddress.FromContract(command.ShippingAddress);
+        if (command.PreferredLanguage != null && !string.IsNullOrWhiteSpace(command.PreferredLanguage))
+            PreferredLanguage = command.PreferredLanguage.Trim();
+        if (command.PreferredCurrency != null && !string.IsNullOrWhiteSpace(command.PreferredCurrency))
+            PreferredCurrency = command.PreferredCurrency.Trim();
+        if (command.Notes != null) Notes = string.IsNullOrWhiteSpace(command.Notes) ? null : command.Notes.Trim();
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    public void Cancel(string reason)
+    {
+        if (CancelledAt.HasValue)
+            return; // Idempotent: already cancelled
+        if (string.IsNullOrWhiteSpace(reason))
+            throw new ArgumentException("Cancellation reason is required.", nameof(reason));
+        CancellationReason = reason.Trim();
+        CancelledAt = DateTime.UtcNow;
         UpdatedAt = DateTime.UtcNow;
     }
 }

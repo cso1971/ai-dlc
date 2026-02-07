@@ -22,7 +22,7 @@
 |----------|-------|-------------|
 | **Ordering.Api** | 5001 | Gestione ordini, aggregato Order, REST + MassTransit |
 | **Invoicing.Api** | 5002 | Fatturazione (placeholder) |
-| **Customers.Api** | 5003 | Clienti: REST + MassTransit CreateCustomer, Customer aggregate, CustomersRepository, EF schema `customers` |
+| **Customers.Api** | 5003 | Clienti: CRUD (create, get, update, cancel soft-delete), REST + MassTransit, EF schema `customers` |
 | **AI.Processor** | 5010 | Elaborazione AI, RAG, embedding, chat |
 
 ### Infrastruttura (Docker)

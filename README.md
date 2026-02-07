@@ -226,19 +226,23 @@ CreateOrder ──▶ StartProcessing ──▶ Ship ──▶ Deliver ──▶
 |--------|----------|-------------|
 | `GET` | `/api/customers/{id}` | Get customer by ID (used by AI.Processor for RAG indexing) |
 | `POST` | `/api/customers` | Create a new customer (DDD-style data) |
+| `PUT` | `/api/customers/{id}` | Partial update (only provided fields; cannot update cancelled customer) |
+| `POST` | `/api/customers/{id}/cancel` | Cancel customer – soft delete with reason (idempotent) |
 
 ### MassTransit Consumers (RabbitMQ)
 
 | Consumer | Command | Queue |
 |----------|---------|-------|
 | `CreateCustomerConsumer` | `CreateCustomer` | `create-customer` |
+| `UpdateCustomerConsumer` | `UpdateCustomer` | `update-customer` |
+| `CancelCustomerConsumer` | `CancelCustomer` | `cancel-customer` |
 
 REST `POST /api/customers` calls `CustomerService` and persists to PostgreSQL (schema `customers`, table `customers`). The MassTransit consumer uses the same service. Both publish `CustomerCreated` when a customer is created.
 
 ### Database (EF Core)
 
 - Schema: `customers`
-- Table: `customers` (Id, CompanyName, DisplayName, Email, Phone, TaxId, VatNumber, BillingAddress columns, ShippingAddress columns, PreferredLanguage, PreferredCurrency, Notes, CreatedAt, UpdatedAt)
+- Table: `customers` (Id, CompanyName, DisplayName, Email, … PreferredLanguage, PreferredCurrency, Notes, CreatedAt, UpdatedAt, CancelledAt, CancellationReason)
 - Apply migrations: `dotnet ef database update --project src/Services/Customers.Api`
 
 ### CreateCustomer payload (DDD-style)
