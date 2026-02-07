@@ -100,10 +100,10 @@
 - **Customer**: CustomerCreated/CustomerUpdated → fetch da Customers API, embedding, upsert in Qdrant; CustomerCancelled → rimozione punto dalla collection `customers`
 
 ### 4. **RAG implementato nel chat endpoint**
-- `/api/ai/chat` cerca prima in Qdrant
+- `/api/ai/chat` cerca in Qdrant **sia** la collection `orders` **sia** la collection `customers` (ricerca semantica in parallelo), unisce i risultati in un unico contesto e lo invia a Ollama
 - Passa i risultati come contesto a Ollama
 - Risponde basandosi su dati reali, non conoscenza generica
-- **MaxResults: 100** (default) - numero massimo di ordini usati come contesto
+- **MaxResults** (default 20): limite totale contesto; viene ripartito tra ordini e clienti (metà ciascuno)
 
 ### 5. **Embedding vs Analisi AI**
 - **Embedding** (nomic-embed-text): ~200ms, necessario per RAG

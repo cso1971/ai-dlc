@@ -26,33 +26,50 @@ public static class AiEndpoints
             logger.LogDebug("RAG: Generating embedding for query: {Query}", request.Prompt);
             var queryEmbedding = await ollamaService.GenerateEmbeddingAsync(request.Prompt, cancellationToken);
             
-            // Step 2: Search Qdrant for relevant orders
-            logger.LogDebug("RAG: Searching Qdrant for relevant orders...");
-            var searchResults = await qdrantService.SearchSimilarOrdersAsync(queryEmbedding, request.MaxResults ?? 10, cancellationToken);
+            var maxResults = request.MaxResults ?? 20;
+            var limitPerCollection = (maxResults + 1) / 2; // split between orders and customers
             
-            // Step 3: Build context from search results
+            // Step 2: Search Qdrant for relevant orders and customers (parallel)
+            logger.LogDebug("RAG: Searching Qdrant for relevant orders and customers...");
+            var ordersTask = qdrantService.SearchSimilarOrdersAsync(queryEmbedding, limitPerCollection, cancellationToken);
+            var customersTask = qdrantService.SearchSimilarCustomersAsync(queryEmbedding, limitPerCollection, cancellationToken);
+            await Task.WhenAll(ordersTask, customersTask);
+            var orderResults = await ordersTask;
+            var customerResults = await customersTask;
+            
+            // Step 3: Build context from both search results
             var contextBuilder = new System.Text.StringBuilder();
             contextBuilder.AppendLine("=== DATI ORDINI DAL DATABASE ===");
-            contextBuilder.AppendLine($"Trovati {searchResults.Count} ordini rilevanti:\n");
-            
-            foreach (var result in searchResults)
+            contextBuilder.AppendLine($"Trovati {orderResults.Count} ordini rilevanti:\n");
+            foreach (var result in orderResults)
             {
                 contextBuilder.AppendLine($"--- Ordine {result.OrderId} (relevance: {result.Score:F2}) ---");
                 if (result.Payload != null)
                 {
                     foreach (var kvp in result.Payload)
-                    {
                         contextBuilder.AppendLine($"  {kvp.Key}: {kvp.Value}");
-                    }
+                }
+                contextBuilder.AppendLine();
+            }
+            contextBuilder.AppendLine("=== DATI CLIENTI DAL DATABASE ===");
+            contextBuilder.AppendLine($"Trovati {customerResults.Count} clienti rilevanti:\n");
+            foreach (var result in customerResults)
+            {
+                contextBuilder.AppendLine($"--- Cliente {result.CustomerId} (relevance: {result.Score:F2}) ---");
+                if (result.Payload != null)
+                {
+                    foreach (var kvp in result.Payload)
+                        contextBuilder.AppendLine($"  {kvp.Key}: {kvp.Value}");
                 }
                 contextBuilder.AppendLine();
             }
             
             // Step 4: Build the RAG prompt with context
             var systemPrompt = request.SystemPrompt ?? """
-                Sei un assistente AI per un sistema di gestione ordini.
-                Rispondi SEMPRE basandoti sui dati degli ordini forniti nel contesto.
-                Se ti viene chiesto di contare o elencare ordini, usa SOLO i dati forniti.
+                Sei un assistente AI per un sistema di gestione ordini e clienti.
+                Rispondi SEMPRE basandoti sui dati di ordini e clienti forniti nel contesto.
+                Il contesto contiene due sezioni: DATI ORDINI e DATI CLIENTI. Usa entrambe se rilevanti per la domanda.
+                Se ti viene chiesto di contare o elencare, usa SOLO i dati forniti.
                 Se non trovi informazioni rilevanti nel contesto, dillo chiaramente.
                 Rispondi in italiano.
                 """;
@@ -68,25 +85,27 @@ public static class AiEndpoints
                 === RISPOSTA (basata sui dati sopra) ===
                 """;
             
-            logger.LogDebug("RAG: Sending prompt to Ollama with {Count} orders as context", searchResults.Count);
+            logger.LogDebug("RAG: Sending prompt to Ollama with {OrderCount} orders and {CustomerCount} customers as context",
+                orderResults.Count, customerResults.Count);
             
             // Step 5: Get response from Ollama
             var response = await ollamaService.GenerateCompletionAsync(ragPrompt, cancellationToken);
             sw.Stop();
             
-            logger.LogInformation("RAG: Completed in {Duration}ms with {OrderCount} orders as context", 
-                sw.ElapsedMilliseconds, searchResults.Count);
+            logger.LogInformation("RAG: Completed in {Duration}ms with {OrderCount} orders, {CustomerCount} customers",
+                sw.ElapsedMilliseconds, orderResults.Count, customerResults.Count);
             
             return Results.Ok(new ChatResponse(
                 Response: response,
                 Model: "llama3.2",
                 Duration: sw.Elapsed,
-                ContextOrdersCount: searchResults.Count
+                ContextOrdersCount: orderResults.Count,
+                ContextCustomersCount: customerResults.Count
             ));
         })
         .WithName("Chat")
         .WithSummary("RAG-powered chat with order context")
-        .WithDescription("Searches for relevant orders in Qdrant, then sends the question with order context to Ollama for an informed response.")
+        .WithDescription("Searches for relevant orders and customers in Qdrant (collections orders + customers), then sends the question with combined context to Ollama for an informed response.")
         .Produces<ChatResponse>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status500InternalServerError);
 

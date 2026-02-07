@@ -14,7 +14,8 @@ public record ChatResponse(
     string Response,
     string Model,
     TimeSpan Duration,
-    int? ContextOrdersCount = null
+    int? ContextOrdersCount = null,
+    int? ContextCustomersCount = null
 );
 
 public record StreamChatRequest(

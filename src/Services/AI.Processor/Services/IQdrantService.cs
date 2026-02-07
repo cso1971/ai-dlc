@@ -9,7 +9,10 @@ public interface IQdrantService
 
     Task EnsureCustomersCollectionExistsAsync(CancellationToken cancellationToken = default);
     Task UpsertCustomerAsync(Guid customerId, float[] embedding, Dictionary<string, object> payload, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<CustomerSearchResult>> SearchSimilarCustomersAsync(float[] embedding, int limit = 10, CancellationToken cancellationToken = default);
     Task DeleteCustomerAsync(Guid customerId, CancellationToken cancellationToken = default);
 }
 
 public record SearchResult(Guid OrderId, float Score, Dictionary<string, object> Payload);
+
+public record CustomerSearchResult(Guid CustomerId, float Score, Dictionary<string, object> Payload);

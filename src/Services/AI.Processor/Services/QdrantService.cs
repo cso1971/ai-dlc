@@ -129,6 +129,36 @@ public class QdrantService : IQdrantService
         }
     }
 
+    public async Task<IReadOnlyList<CustomerSearchResult>> SearchSimilarCustomersAsync(float[] embedding, int limit = 10, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await EnsureCustomersCollectionExistsAsync(cancellationToken);
+
+            var searchResults = await _client.SearchAsync(
+                _customersCollectionName,
+                embedding,
+                limit: (ulong)limit,
+                cancellationToken: cancellationToken);
+
+            var results = searchResults.Select(r => new CustomerSearchResult(
+                Guid.Parse(r.Id.Uuid),
+                r.Score,
+                r.Payload.ToDictionary(
+                    p => p.Key,
+                    p => (object)(p.Value.StringValue ?? p.Value.IntegerValue.ToString()))
+            )).ToList();
+
+            _logger.LogDebug("Found {Count} similar customers", results.Count);
+            return results;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error searching similar customers");
+            throw;
+        }
+    }
+
     public async Task DeleteOrderAsync(Guid orderId, CancellationToken cancellationToken = default)
     {
         try

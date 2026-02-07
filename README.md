@@ -351,6 +351,8 @@ curl -X POST http://localhost:5010/api/ai/search \
 
 ### RAG Architecture
 
+**Chat RAG** (`POST /api/ai/chat`): the user's question is embedded, then **both** Qdrant collections are queried in parallel—**orders** and **customers**. The top similar orders and top similar customers are merged into a single context (sections "DATI ORDINI" and "DATI CLIENTI"), and Ollama answers based on that combined context. So the chatbot can answer questions about both orders and customers (e.g. "Which customers are in Italy?", "Orders for company X").
+
 When an event is received, AI.Processor:
 1. **Fetches complete order** from Ordering API via HTTP (`GET /api/orders/{id}`)
 2. **Generates text representation** of the order with all details
