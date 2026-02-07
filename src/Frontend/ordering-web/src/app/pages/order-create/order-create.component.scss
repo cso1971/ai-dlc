@@ -83,24 +83,13 @@
     font-size: 0.875rem;
   }
 
-  .customer-select-row {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-
-    select {
-      flex: 1;
-      min-width: 0;
-    }
-  }
-
   .link-add-customer {
-    flex-shrink: 0;
+    display: block;
+    margin-top: 0.5rem;
     color: #667eea;
     font-size: 0.875rem;
     font-weight: 500;
     text-decoration: none;
-    white-space: nowrap;
 
     &:hover {
       text-decoration: underline;
