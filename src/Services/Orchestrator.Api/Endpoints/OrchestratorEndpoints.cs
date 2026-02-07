@@ -33,6 +33,7 @@ public static class OrchestratorEndpoints
                 var response = result?.GetValue<string>() ?? string.Empty;
 
                 // Fallback: Ollama può restituire la "chiamata" come JSON nel testo invece che come tool_call; invochiamo noi il plugin
+                logger.LogDebug("Chat response length={Len}, startsWith={{={Starts}", response.Length, response.TrimStart().StartsWith('{'));
                 var invoked = await TryInvokeFunctionFromResponseAsync(kernel, response.Trim(), logger, cancellationToken);
                 if (invoked != null)
                     return Results.Ok(new ChatResponse(invoked));
@@ -70,20 +71,15 @@ public static class OrchestratorEndpoints
     /// </summary>
     private static async Task<string?> TryInvokeFunctionFromResponseAsync(Kernel kernel, string response, ILogger logger, CancellationToken cancellationToken)
     {
-        var json = response;
-        if (json.Contains("```"))
+        if (string.IsNullOrWhiteSpace(response) || !response.Contains("parameters", StringComparison.Ordinal)) return null;
+
+        // Estrai il primo oggetto JSON (da prima { a } bilanciata), così funziona anche senza markdown
+        var json = ExtractJsonObject(response);
+        if (string.IsNullOrEmpty(json))
         {
-            var start = json.IndexOf("```json", StringComparison.OrdinalIgnoreCase);
-            if (start < 0) start = json.IndexOf("```");
-            if (start >= 0)
-            {
-                start = json.IndexOf('\n', start) + 1;
-                var end = json.IndexOf("```", start, StringComparison.Ordinal);
-                if (end > start) json = json[start..end];
-            }
+            logger.LogDebug("Fallback: no JSON object in response (len={Len})", response?.Length ?? 0);
+            return null;
         }
-        json = json.Trim();
-        if (!json.StartsWith('{')) return null;
 
         JsonElement root;
         try { root = JsonSerializer.Deserialize<JsonElement>(json); }
@@ -111,16 +107,37 @@ public static class OrchestratorEndpoints
 
         try
         {
-            var fnResult = await kernel.InvokeAsync(pluginName, functionName, kernelArgs, cancellationToken);
+            var function = kernel.Plugins.GetFunction(pluginName, functionName);
+            var fnResult = await kernel.InvokeAsync(function, kernelArgs, cancellationToken);
             var resultValue = fnResult?.GetValue<string>();
-            logger.LogInformation("Invoked {Plugin}.{Function} from LLM JSON response", pluginName, functionName);
+            logger.LogInformation("Fallback: invoked {Plugin}.{Function}", pluginName, functionName);
             return resultValue ?? "Comando eseguito.";
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Fallback invoke failed for {Name}", name);
+            logger.LogWarning(ex, "Fallback: invoke failed for {Plugin}.{Function} - {Message}", pluginName, functionName, ex.Message);
             return null;
         }
+    }
+
+    /// <summary>Estrae il primo oggetto JSON dalla risposta (da prima { a } bilanciata).</summary>
+    private static string? ExtractJsonObject(string response)
+    {
+        if (string.IsNullOrWhiteSpace(response)) return null;
+        var s = response.Trim();
+        var start = s.IndexOf('{');
+        if (start < 0) return null;
+        var depth = 0;
+        for (var i = start; i < s.Length; i++)
+        {
+            if (s[i] == '{') depth++;
+            else if (s[i] == '}')
+            {
+                depth--;
+                if (depth == 0) return s[start..(i + 1)];
+            }
+        }
+        return null;
     }
 }
 
