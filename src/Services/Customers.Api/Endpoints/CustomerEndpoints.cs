@@ -13,6 +13,13 @@ public static class CustomerEndpoints
         var group = app.MapGroup("/api/customers")
             .WithTags("Customers");
 
+        // GET /api/customers
+        group.MapGet("/", GetAllCustomers)
+            .WithName("GetAllCustomers")
+            .WithSummary("List all customers")
+            .WithDescription("Returns a list of all customers (summary).")
+            .Produces<List<CustomerSummaryResponse>>(StatusCodes.Status200OK);
+
         // GET /api/customers/{id}
         group.MapGet("/{id:guid}", GetCustomerById)
             .WithName("GetCustomerById")
@@ -46,6 +53,21 @@ public static class CustomerEndpoints
             .WithDescription("Creates a new customer with company and contact details (DDD Customer aggregate). Persisted to PostgreSQL schema 'customers'.")
             .Produces<CustomerResponse>(StatusCodes.Status201Created)
             .Produces(StatusCodes.Status400BadRequest);
+    }
+
+    private static async Task<IResult> GetAllCustomers(CustomerService customerService, CancellationToken cancellationToken)
+    {
+        var customers = await customerService.GetAllAsync(cancellationToken);
+        var list = customers.Select(c => new CustomerSummaryResponse
+        {
+            Id = c.Id,
+            CompanyName = c.CompanyName,
+            DisplayName = c.DisplayName,
+            Email = c.Email,
+            CreatedAt = c.CreatedAt,
+            IsActive = c.IsActive
+        }).ToList();
+        return Results.Ok(list);
     }
 
     private static async Task<IResult> GetCustomerById(Guid id, CustomerService customerService, CancellationToken cancellationToken)

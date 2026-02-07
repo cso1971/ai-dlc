@@ -1,0 +1,255 @@
+<div class="customer-detail-container">
+  <header class="page-header">
+    <a routerLink="/customers" class="back-link">← Back to Customers</a>
+    <h1 *ngIf="customer">{{ customer.companyName }}</h1>
+  </header>
+
+  <div *ngIf="loading" class="loading">
+    <div class="spinner"></div>
+    <p>Loading customer...</p>
+  </div>
+
+  <div *ngIf="error" class="error-message">
+    <p>{{ error }}</p>
+    <a routerLink="/customers" class="btn btn-secondary">Back to Customers</a>
+  </div>
+
+  <div *ngIf="customer && !loading" class="customer-content">
+    <!-- Status & Actions -->
+    <div class="status-card">
+      <div class="status-info">
+        <span class="status-badge" [class.inactive]="!customer.isActive">
+          {{ customer.isActive ? 'Active' : 'Cancelled' }}
+        </span>
+        <span class="customer-id">{{ customer.id }}</span>
+      </div>
+      <div class="actions">
+        <button *ngIf="canEdit() && !editMode" (click)="toggleEdit()" class="btn btn-action btn-edit">
+          Edit Customer
+        </button>
+        <template *ngIf="editMode">
+          <button (click)="toggleEdit()" [disabled]="actionLoading" class="btn btn-secondary">Discard</button>
+          <button (click)="saveUpdate()" [disabled]="actionLoading" class="btn btn-primary">
+            {{ actionLoading ? 'Saving...' : 'Save' }}
+          </button>
+        </template>
+        <button *ngIf="canCancel() && !editMode" (click)="openCancelModal()" [disabled]="actionLoading" class="btn btn-action btn-cancel">
+          Cancel Customer
+        </button>
+      </div>
+    </div>
+
+    <!-- View mode -->
+    <div *ngIf="!editMode" class="info-grid">
+      <div class="info-card">
+        <h3>Company &amp; Contact</h3>
+        <div class="info-row">
+          <span class="label">Company</span>
+          <span class="value">{{ customer.companyName }}</span>
+        </div>
+        <div class="info-row" *ngIf="customer.displayName">
+          <span class="label">Display Name</span>
+          <span class="value">{{ customer.displayName }}</span>
+        </div>
+        <div class="info-row">
+          <span class="label">Email</span>
+          <span class="value">{{ customer.email }}</span>
+        </div>
+        <div class="info-row" *ngIf="customer.phone">
+          <span class="label">Phone</span>
+          <span class="value">{{ customer.phone }}</span>
+        </div>
+        <div class="info-row" *ngIf="customer.taxId">
+          <span class="label">Tax ID</span>
+          <span class="value">{{ customer.taxId }}</span>
+        </div>
+        <div class="info-row" *ngIf="customer.vatNumber">
+          <span class="label">VAT</span>
+          <span class="value">{{ customer.vatNumber }}</span>
+        </div>
+        <div class="info-row">
+          <span class="label">Language / Currency</span>
+          <span class="value">{{ customer.preferredLanguage }} / {{ customer.preferredCurrency }}</span>
+        </div>
+        <div class="info-row">
+          <span class="label">Created</span>
+          <span class="value">{{ formatDate(customer.createdAt) }}</span>
+        </div>
+        <div class="info-row" *ngIf="customer.updatedAt">
+          <span class="label">Updated</span>
+          <span class="value">{{ formatDate(customer.updatedAt) }}</span>
+        </div>
+        <div class="info-row" *ngIf="customer.notes">
+          <span class="label">Notes</span>
+          <span class="value">{{ customer.notes }}</span>
+        </div>
+      </div>
+
+      <div class="info-card" *ngIf="customer.billingAddress">
+        <h3>Billing Address</h3>
+        <div class="address-block">
+          <p><strong>{{ customer.billingAddress.recipientName }}</strong></p>
+          <p>{{ customer.billingAddress.addressLine1 }}</p>
+          <p *ngIf="customer.billingAddress.addressLine2">{{ customer.billingAddress.addressLine2 }}</p>
+          <p>{{ customer.billingAddress.postalCode }} {{ customer.billingAddress.city }}</p>
+          <p *ngIf="customer.billingAddress.stateOrProvince">{{ customer.billingAddress.stateOrProvince }}</p>
+          <p>{{ customer.billingAddress.countryCode }}</p>
+          <p *ngIf="customer.billingAddress.phoneNumber">Tel: {{ customer.billingAddress.phoneNumber }}</p>
+        </div>
+      </div>
+
+      <div class="info-card" *ngIf="customer.shippingAddress">
+        <h3>Shipping Address</h3>
+        <div class="address-block">
+          <p><strong>{{ customer.shippingAddress.recipientName }}</strong></p>
+          <p>{{ customer.shippingAddress.addressLine1 }}</p>
+          <p *ngIf="customer.shippingAddress.addressLine2">{{ customer.shippingAddress.addressLine2 }}</p>
+          <p>{{ customer.shippingAddress.postalCode }} {{ customer.shippingAddress.city }}</p>
+          <p *ngIf="customer.shippingAddress.stateOrProvince">{{ customer.shippingAddress.stateOrProvince }}</p>
+          <p>{{ customer.shippingAddress.countryCode }}</p>
+          <p *ngIf="customer.shippingAddress.phoneNumber">Tel: {{ customer.shippingAddress.phoneNumber }}</p>
+        </div>
+      </div>
+
+      <div class="info-card warning" *ngIf="!customer.isActive">
+        <h3>Cancellation</h3>
+        <div class="info-row">
+          <span class="label">Reason</span>
+          <span class="value">{{ customer.cancellationReason }}</span>
+        </div>
+        <div class="info-row">
+          <span class="label">Cancelled At</span>
+          <span class="value">{{ formatDate(customer.cancelledAt) }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit mode -->
+    <div *ngIf="editMode && customer" class="form-section edit-form">
+      <h2>Edit Customer</h2>
+      <div class="form-grid">
+        <div class="form-group full-width">
+          <label>Company Name *</label>
+          <input type="text" [(ngModel)]="editForm.companyName" name="companyName" required>
+        </div>
+        <div class="form-group full-width">
+          <label>Display Name</label>
+          <input type="text" [(ngModel)]="editForm.displayName" name="displayName">
+        </div>
+        <div class="form-group">
+          <label>Email *</label>
+          <input type="email" [(ngModel)]="editForm.email" name="email" required>
+        </div>
+        <div class="form-group">
+          <label>Phone</label>
+          <input type="text" [(ngModel)]="editForm.phone" name="phone">
+        </div>
+        <div class="form-group">
+          <label>Tax ID</label>
+          <input type="text" [(ngModel)]="editForm.taxId" name="taxId">
+        </div>
+        <div class="form-group">
+          <label>VAT Number</label>
+          <input type="text" [(ngModel)]="editForm.vatNumber" name="vatNumber">
+        </div>
+        <div class="form-group">
+          <label>Language</label>
+          <select [(ngModel)]="editForm.preferredLanguage" name="preferredLanguage">
+            <option value="en">English</option>
+            <option value="it">Italiano</option>
+            <option value="de">Deutsch</option>
+            <option value="fr">Français</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Currency</label>
+          <select [(ngModel)]="editForm.preferredCurrency" name="preferredCurrency">
+            <option value="EUR">EUR</option>
+            <option value="USD">USD</option>
+            <option value="GBP">GBP</option>
+          </select>
+        </div>
+        <div class="form-group full-width">
+          <label>Notes</label>
+          <textarea [(ngModel)]="editForm.notes" name="notes" rows="2"></textarea>
+        </div>
+      </div>
+
+      <div class="section-header">
+        <h3>Billing Address</h3>
+        <label class="checkbox-label">
+          <input type="checkbox" [(ngModel)]="includeBilling" name="includeBilling">
+          Include
+        </label>
+      </div>
+      <div *ngIf="includeBilling && editBilling" class="form-grid">
+        <div class="form-group full-width">
+          <label>Recipient Name *</label>
+          <input type="text" [(ngModel)]="editBilling.recipientName" name="billingRecipient" required>
+        </div>
+        <div class="form-group full-width">
+          <label>Address Line 1 *</label>
+          <input type="text" [(ngModel)]="editBilling.addressLine1" name="billingLine1" required>
+        </div>
+        <div class="form-group">
+          <label>City *</label>
+          <input type="text" [(ngModel)]="editBilling.city" name="billingCity" required>
+        </div>
+        <div class="form-group">
+          <label>Postal Code *</label>
+          <input type="text" [(ngModel)]="editBilling.postalCode" name="billingPostal" required>
+        </div>
+        <div class="form-group">
+          <label>Country *</label>
+          <input type="text" [(ngModel)]="editBilling.countryCode" name="billingCountry" required maxlength="3">
+        </div>
+      </div>
+
+      <div class="section-header">
+        <h3>Shipping Address</h3>
+        <label class="checkbox-label">
+          <input type="checkbox" [(ngModel)]="includeShipping" name="includeShipping">
+          Include
+        </label>
+      </div>
+      <div *ngIf="includeShipping && editShipping" class="form-grid">
+        <div class="form-group full-width">
+          <label>Recipient Name *</label>
+          <input type="text" [(ngModel)]="editShipping.recipientName" name="shipRecipient" required>
+        </div>
+        <div class="form-group full-width">
+          <label>Address Line 1 *</label>
+          <input type="text" [(ngModel)]="editShipping.addressLine1" name="shipLine1" required>
+        </div>
+        <div class="form-group">
+          <label>City *</label>
+          <input type="text" [(ngModel)]="editShipping.city" name="shipCity" required>
+        </div>
+        <div class="form-group">
+          <label>Postal Code *</label>
+          <input type="text" [(ngModel)]="editShipping.postalCode" name="shipPostal" required>
+        </div>
+        <div class="form-group">
+          <label>Country *</label>
+          <input type="text" [(ngModel)]="editShipping.countryCode" name="shipCountry" required maxlength="3">
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Cancel Modal -->
+<div class="modal-overlay" *ngIf="showCancelModal" (click)="closeCancelModal()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <h2>Cancel Customer</h2>
+    <p class="modal-description">This will mark the customer as cancelled (soft delete). The reason will be stored.</p>
+    <div class="form-group">
+      <label>Cancellation Reason *</label>
+      <textarea [(ngModel)]="cancellationReason" rows="3" placeholder="Enter reason for cancellation" required></textarea>
+    </div>
+    <div class="modal-actions">
+      <button (click)="closeCancelModal()" class="btn btn-secondary">Back</button>
+      <button (click)="cancelCustomer()" [disabled]="!cancellationReason?.trim() || actionLoading" class="btn btn-danger">Cancel Customer</button>
+    </div>
+  </div>
+</div>

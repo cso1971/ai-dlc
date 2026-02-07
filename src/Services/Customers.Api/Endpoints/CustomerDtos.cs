@@ -51,6 +51,16 @@ public record PostalAddressDto
 }
 
 // Response DTOs
+public record CustomerSummaryResponse
+{
+    public Guid Id { get; init; }
+    public string CompanyName { get; init; } = string.Empty;
+    public string? DisplayName { get; init; }
+    public string Email { get; init; } = string.Empty;
+    public DateTime CreatedAt { get; init; }
+    public bool IsActive { get; init; }
+}
+
 public record CustomerResponse
 {
     public Guid Id { get; init; }

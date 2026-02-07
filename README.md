@@ -224,6 +224,7 @@ CreateOrder ──▶ StartProcessing ──▶ Ship ──▶ Deliver ──▶
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
+| `GET` | `/api/customers` | List all customers (summary) |
 | `GET` | `/api/customers/{id}` | Get customer by ID (used by AI.Processor for RAG indexing) |
 | `POST` | `/api/customers` | Create a new customer (DDD-style data) |
 | `PUT` | `/api/customers/{id}` | Partial update (only provided fields; cannot update cancelled customer) |
@@ -459,7 +460,7 @@ DistributedPlayground/
 
 ## Frontend - Ordering Web (Angular)
 
-Angular 17 SPA for managing orders.
+Angular 17 SPA for managing orders and customers.
 
 **Location:** `src/Frontend/ordering-web`
 
@@ -470,6 +471,9 @@ Angular 17 SPA for managing orders.
 | Order List | `/orders` | List all orders with summary |
 | Order Detail | `/orders/:id` | View order details and execute workflow actions |
 | Create Order | `/orders/new` | Create a new order with lines |
+| Customer List | `/customers` | List all customers (Active / Cancelled) |
+| Customer Detail | `/customers/:id` | View customer, edit (partial update), or cancel (soft delete) |
+| Create Customer | `/customers/new` | Create a new customer with company, contact, and optional addresses |
 
 ### Running the Frontend
 
@@ -483,10 +487,9 @@ npm start
 
 ### Features
 
-- View all orders with status badges
-- Create orders with multiple line items
-- Execute workflow actions (Start Processing, Ship, Deliver, Invoice, Cancel)
-- Modal dialogs for actions requiring input
+- **Orders:** List, create, detail with workflow actions (Start Processing, Ship, Deliver, Invoice, Cancel)
+- **Customers:** List, create, detail with edit (partial update) and cancel (soft delete with reason)
+- Modal dialogs for actions requiring input (e.g. cancel reason)
 - **AI Chat Assistant** - Always visible floating panel with:
   - 💬 Chat mode: Ask questions about orders
   - 🔍 Search mode: Semantic search over orders in Qdrant

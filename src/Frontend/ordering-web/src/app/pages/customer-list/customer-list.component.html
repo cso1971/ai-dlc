@@ -1,0 +1,58 @@
+<div class="customer-list-container">
+  <header class="page-header">
+    <h1>Customers</h1>
+    <a routerLink="/customers/new" class="btn btn-primary">
+      <span class="icon">+</span> New Customer
+    </a>
+  </header>
+
+  <div *ngIf="loading" class="loading">
+    <div class="spinner"></div>
+    <p>Loading customers...</p>
+  </div>
+
+  <div *ngIf="error" class="error-message">
+    <p>{{ error }}</p>
+    <button (click)="loadCustomers()" class="btn btn-secondary">Retry</button>
+  </div>
+
+  <div *ngIf="!loading && !error && customers.length === 0" class="empty-state">
+    <div class="empty-icon">👤</div>
+    <h2>No customers yet</h2>
+    <p>Create your first customer to get started</p>
+    <a routerLink="/customers/new" class="btn btn-primary">Create Customer</a>
+  </div>
+
+  <div *ngIf="!loading && !error && customers.length > 0" class="customers-table-container">
+    <table class="customers-table">
+      <thead>
+        <tr>
+          <th>Company</th>
+          <th>Display Name</th>
+          <th>Email</th>
+          <th>Status</th>
+          <th>Created</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let customer of customers" [routerLink]="['/customers', customer.id]" class="clickable-row">
+          <td class="company-name">{{ customer.companyName }}</td>
+          <td>{{ customer.displayName || '-' }}</td>
+          <td>{{ customer.email }}</td>
+          <td>
+            <span class="status-badge" [class.inactive]="!customer.isActive">
+              {{ customer.isActive ? 'Active' : 'Cancelled' }}
+            </span>
+          </td>
+          <td>{{ formatDate(customer.createdAt) }}</td>
+          <td>
+            <a [routerLink]="['/customers', customer.id]" class="btn btn-sm btn-secondary" (click)="$event.stopPropagation()">
+              View
+            </a>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
