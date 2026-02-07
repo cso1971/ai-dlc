@@ -9,14 +9,15 @@ namespace Orchestrator.Api.Plugins;
 
 /// <summary>
 /// Semantic Kernel plugin that sends commands via MassTransit (create order, create customer).
+/// Uses IBus (singleton) so the plugin can be resolved when building the Kernel from the root provider.
 /// </summary>
 public class MassTransitCommandsPlugin
 {
-    private readonly ISendEndpointProvider _sendEndpointProvider;
+    private readonly IBus _bus;
 
-    public MassTransitCommandsPlugin(ISendEndpointProvider sendEndpointProvider)
+    public MassTransitCommandsPlugin(IBus bus)
     {
-        _sendEndpointProvider = sendEndpointProvider;
+        _bus = bus;
     }
 
     [KernelFunction, Description("Create a new customer by sending a CreateCustomer command. Use companyName for the legal name and displayName for a short name (e.g. 'Acme SPA'). Email is required.")]
@@ -38,7 +39,7 @@ public class MassTransitCommandsPlugin
             PreferredLanguage = "it",
             PreferredCurrency = "EUR"
         };
-        var endpoint = await _sendEndpointProvider.GetSendEndpoint(new Uri("queue:create-customer"));
+        var endpoint = await _bus.GetSendEndpoint(new Uri("queue:create-customer"));
         await endpoint.Send(command, cancellationToken);
         return "CreateCustomer command sent successfully. The customer will be created shortly.";
     }
@@ -75,7 +76,7 @@ public class MassTransitCommandsPlugin
                 }
             ]
         };
-        var endpoint = await _sendEndpointProvider.GetSendEndpoint(new Uri("queue:create-order"));
+        var endpoint = await _bus.GetSendEndpoint(new Uri("queue:create-order"));
         await endpoint.Send(command, cancellationToken);
         return "CreateOrder command sent successfully.";
     }

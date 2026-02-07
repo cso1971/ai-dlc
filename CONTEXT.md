@@ -110,8 +110,8 @@
 ### 5. **Orchestrator.Api (Semantic Kernel)**
 - Nuovo servizio che usa **Semantic Kernel** con **Ollama** (solo LLM locale, nessuna chiamata a API esterne).
 - Espone REST (`POST /api/orchestrator/chat`) e consumer MassTransit per comando `RequestOrchestration` (queue `request-orchestration`).
-- **Plugin**: `ServicesApi` (chiamate HTTP a Ordering.Api e Customers.Api: ordini, stats, clienti); `MassTransitCommands` (invio comando `CreateOrder` su coda).
-- Il kernel può quindi sia leggere dati (ordini, clienti) sia inviare comandi (es. crea ordine) in base al prompt.
+- **Plugin**: `ServicesApi` (chiamate HTTP a Ordering.Api e Customers.Api: ordini, stats, clienti); `MassTransitCommands` (invio comandi `CreateOrder`, `CreateCustomer` su code MassTransit). Il plugin usa **IBus** (singleton) invece di ISendEndpointProvider (scoped) così il Kernel può restare singleton.
+- Il kernel può quindi sia leggere dati (ordini, clienti) sia inviare comandi (es. crea ordine, crea cliente) in base al prompt.
 
 ### 6. **Embedding vs Analisi AI**
 - **Embedding** (nomic-embed-text): ~200ms, necessario per RAG
@@ -143,6 +143,11 @@
 **Problema**: Troppe richieste parallele saturavano Ollama.
 **Causa**: Analisi AI sincrona per ogni ordine (~40 sec ciascuna).
 **Mitigazione**: Timeout esteso, ma potrebbe servire rimuovere analisi AI o usare modello più leggero.
+
+### Cannot resolve MassTransitCommandsPlugin (ISendEndpointProvider scoped)
+**Problema**: `Cannot resolve 'Orchestrator.Api.Plugins.MassTransitCommandsPlugin' from root provider because it requires scoped service 'MassTransit.ISendEndpointProvider'.`
+**Causa**: Il Kernel è registrato come singleton e alla costruzione risolve i plugin dal root provider; `ISendEndpointProvider` in MassTransit è scoped, quindi non risolvibile dal root.
+**Soluzione**: In `MassTransitCommandsPlugin` usare **IBus** invece di `ISendEndpointProvider`. `IBus` è singleton e espone `GetSendEndpoint`, così il plugin può essere risolto quando si costruisce il Kernel.
 
 ---
 
