@@ -66,7 +66,23 @@ docker-compose --profile full up -d
 .\infra\scripts\init-ollama.ps1
 ```
 
-### 3. Run .NET Services Locally (Development)
+### 3. Create Ordering database schema
+
+Create the `ordering` schema and tables in PostgreSQL (required for Ordering API). Run from the repo root with infrastructure up:
+
+**PowerShell (Windows):**
+```powershell
+Get-Content infra/scripts/create-ordering-schema.sql | docker exec -i playground-postgres psql -U playground -d playground_db
+```
+
+**Bash (Linux/macOS):**
+```bash
+cat infra/scripts/create-ordering-schema.sql | docker exec -i playground-postgres psql -U playground -d playground_db
+```
+
+Alternatively, if you have the EF Core tools and migrations are discovered correctly: `dotnet ef database update --project src/Services/Ordering.Api`.
+
+### 4. Run .NET Services Locally (Development)
 
 ```powershell
 # Terminal 1 - Ordering API

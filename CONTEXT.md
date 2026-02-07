@@ -180,11 +180,13 @@ cd DistributedPlayground
 cd infra && docker-compose up -d
 
 # 3. Inizializza modelli Ollama
-./scripts/init-ollama.ps1  # o .sh
+./infra/scripts/init-ollama.ps1  # o .sh
 
-# 4. Applica migrations EF Core
-cd ../src/Services/Ordering.Api
-dotnet ef database update
+# 4. Crea schema DB Ordering (schema ordering + tabelle)
+# Da root repo, con Docker avviato:
+#   PowerShell: Get-Content infra/scripts/create-ordering-schema.sql | docker exec -i playground-postgres psql -U playground -d playground_db
+#   Bash:      cat infra/scripts/create-ordering-schema.sql | docker exec -i playground-postgres psql -U playground -d playground_db
+# Alternativa: dotnet ef database update --project src/Services/Ordering.Api
 
 # 5. Avvia servizi
 dotnet run --project src/Services/Ordering.Api --urls "http://localhost:5001"
