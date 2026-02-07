@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.SemanticKernel;
 
@@ -30,6 +31,12 @@ public static class OrchestratorEndpoints
                 var fullPrompt = $"<system>\n{SystemPrompt}\n</system>\n<user>\n{prompt}\n</user>";
                 var result = await kernel.InvokePromptAsync(fullPrompt, args, null, null, cancellationToken);
                 var response = result?.GetValue<string>() ?? string.Empty;
+
+                // Fallback: Ollama può restituire la "chiamata" come JSON nel testo invece che come tool_call; invochiamo noi il plugin
+                var invoked = await TryInvokeFunctionFromResponseAsync(kernel, response.Trim(), logger, cancellationToken);
+                if (invoked != null)
+                    return Results.Ok(new ChatResponse(invoked));
+
                 return Results.Ok(new ChatResponse(response));
             }
             catch (Exception ex)
@@ -55,6 +62,65 @@ public static class OrchestratorEndpoints
         })
         .WithName("InvokePrompt")
         .WithSummary("Invoke a prompt (no chat history)");
+    }
+
+    /// <summary>
+    /// Se la risposta del modello è un JSON tipo {"name":"Plugin-Function","parameters":{...}},
+    /// invoca la funzione e restituisce il risultato (Ollama a volte restituisce la "call" come testo invece che come tool_call).
+    /// </summary>
+    private static async Task<string?> TryInvokeFunctionFromResponseAsync(Kernel kernel, string response, ILogger logger, CancellationToken cancellationToken)
+    {
+        var json = response;
+        if (json.Contains("```"))
+        {
+            var start = json.IndexOf("```json", StringComparison.OrdinalIgnoreCase);
+            if (start < 0) start = json.IndexOf("```");
+            if (start >= 0)
+            {
+                start = json.IndexOf('\n', start) + 1;
+                var end = json.IndexOf("```", start, StringComparison.Ordinal);
+                if (end > start) json = json[start..end];
+            }
+        }
+        json = json.Trim();
+        if (!json.StartsWith('{')) return null;
+
+        JsonElement root;
+        try { root = JsonSerializer.Deserialize<JsonElement>(json); }
+        catch { return null; }
+
+        if (!root.TryGetProperty("name", out var nameEl) || !root.TryGetProperty("parameters", out var paramsEl) || paramsEl.ValueKind != JsonValueKind.Object)
+            return null;
+
+        var name = nameEl.GetString();
+        if (string.IsNullOrEmpty(name) || !name.Contains('-')) return null;
+
+        var parts = name.Split('-', 2);
+        var pluginName = parts[0];
+        var functionName = parts[1];
+
+        var kernelArgs = new KernelArguments();
+        foreach (var prop in paramsEl.EnumerateObject())
+        {
+            var v = prop.Value;
+            if (v.ValueKind == JsonValueKind.String) kernelArgs[prop.Name] = v.GetString();
+            else if (v.ValueKind == JsonValueKind.Number && v.TryGetInt32(out var i)) kernelArgs[prop.Name] = i;
+            else if (v.ValueKind == JsonValueKind.Number && v.TryGetDecimal(out var d)) kernelArgs[prop.Name] = d;
+            else kernelArgs[prop.Name] = v.GetRawText();
+        }
+
+        try
+        {
+            var fnResult = await kernel.InvokeAsync(pluginName, functionName, kernelArgs, cancellationToken);
+            var resultValue = fnResult?.GetValue<string>();
+            logger.LogInformation("Invoked {Plugin}.{Function} from LLM JSON response", pluginName, functionName);
+            return resultValue ?? "Comando eseguito.";
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Fallback invoke failed for {Name}", name);
+            return null;
+        }
     }
 }
 

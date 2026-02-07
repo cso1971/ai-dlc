@@ -151,9 +151,9 @@
 **Soluzione**: In `MassTransitCommandsPlugin` usare **IBus** invece di `ISendEndpointProvider`. `IBus` è singleton e espone `GetSendEndpoint`, così il plugin può essere risolto quando si costruisce il Kernel.
 
 ### Chat Semantic Kernel non crea il cliente (risponde con JSON)
-**Problema**: Alla richiesta "crea un cliente Acme SPA" il chatbot rispondeva suggerendo un file JSON invece di eseguire la creazione.
-**Causa**: (1) Nessuna **execution settings** con function calling: il modello non riceveva l’indicazione di invocare le funzioni. (2) Nessun **system prompt** che obbligasse a usare i plugin invece di rispondere in modo generico.
-**Soluzione**: In `OrchestratorEndpoints` per `/chat`: usare **PromptExecutionSettings** con **FunctionChoiceBehavior.Auto()** e passare **KernelArguments(settings)** a **InvokePromptAsync**; aggiungere un **system prompt** (incluso nel testo del prompt con tag `<system>`/`<user>`) che descrive i plugin e ordina esplicitamente di chiamare **MassTransitCommands.SendCreateCustomer** quando l’utente chiede di creare un cliente, senza suggerire JSON.
+**Problema**: Alla richiesta "crea un cliente Acme SPA" il chatbot rispondeva suggerendo un file JSON invece di eseguire la creazione; in un secondo caso restituiva il JSON della “chiamata” (name/parameters) senza eseguirla.
+**Causa**: (1) Nessuna execution settings/system prompt (risolto con FunctionChoiceBehavior.Auto() e system prompt). (2) **Ollama** a volte restituisce la tool call come **testo** (un blocco JSON con name e parameters) invece che come messaggio tool_call, quindi Semantic Kernel non la invoca.
+**Soluzione**: (1) PromptExecutionSettings + FunctionChoiceBehavior.Auto() e system prompt. (2) **Fallback** in `OrchestratorEndpoints`: dopo `InvokePromptAsync`, se la risposta assomiglia a un JSON `{"name":"Plugin-Function","parameters":{...}}`, si estrae il JSON (anche da blocchi \`\`\`json), si invoca manualmente `kernel.InvokeAsync(pluginName, functionName, kernelArgs)` e si restituisce il risultato del plugin (es. "CreateCustomer command sent successfully...") all’utente.
 
 ---
 
