@@ -48,6 +48,13 @@ public class QdrantService : IQdrantService
         }
         catch (Exception ex)
         {
+            // Race condition: another consumer created the collection between List and Create
+            if (ex.Message.Contains("AlreadyExists", StringComparison.OrdinalIgnoreCase) ||
+                ex.Message.Contains("already exists", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogDebug("Collection {Collection} already exists (created by concurrent consumer)", _collectionName);
+                return;
+            }
             _logger.LogError(ex, "Error ensuring collection exists");
             throw;
         }

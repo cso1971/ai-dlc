@@ -119,12 +119,10 @@
 3. Costruire prompt con contesto reale
 4. Far rispondere Ollama con i dati trovati
 
-### Messaggi in coda errori
-**Problema**: Messaggi finivano in `order-created_error` per timeout.
-**Soluzione**: Script PowerShell per spostare messaggi dalla coda errori alla coda principale:
-```powershell
-# Usa RabbitMQ Management API per riprocessare messaggi
-```
+### Messaggi in coda errori (order-created_error)
+**Problema**: Messaggi finivano in `order-created_error` (es. 14 su 20 ordini).
+**Causa verificata**: Non timeout, ma **Qdrant RpcException "Collection already exists"** – race tra consumer: il primo crea la collection `orders`, i successivi chiamano CreateCollection e ricevono AlreadyExists, eccezione → fault queue.
+**Soluzione**: In `QdrantService.EnsureCollectionExistsAsync` gestire l’eccezione quando il messaggio contiene "AlreadyExists" / "already exists" (trattare come successo e uscire). Alternativa per riprocessare: usare RabbitMQ Management API per spostare messaggi dalla coda errori alla coda principale.
 
 ### Ollama sovraccarico (978% CPU)
 **Problema**: Troppe richieste parallele saturavano Ollama.
