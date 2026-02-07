@@ -1,5 +1,4 @@
 using Contracts.Commands.Customers;
-using Contracts.Events.Customers;
 using MassTransit;
 using Customers.Api.Services;
 
@@ -34,15 +33,7 @@ public class UpdateCustomerConsumer : IConsumer<UpdateCustomer>
                 });
                 return;
             }
-
-            await context.Publish(new CustomerUpdated
-            {
-                CustomerId = customer.Id,
-                CompanyName = customer.CompanyName,
-                DisplayName = customer.DisplayName,
-                Email = customer.Email,
-                UpdatedAt = customer.UpdatedAt ?? DateTime.UtcNow
-            });
+            // CustomerUpdated is published by CustomerService
 
             _logger.LogInformation("Customer {CustomerId} updated via MassTransit", customer.Id);
 

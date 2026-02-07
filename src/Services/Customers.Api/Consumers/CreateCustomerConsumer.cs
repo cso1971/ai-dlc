@@ -1,5 +1,4 @@
 using Contracts.Commands.Customers;
-using Contracts.Events.Customers;
 using MassTransit;
 using Customers.Api.Services;
 
@@ -23,15 +22,7 @@ public class CreateCustomerConsumer : IConsumer<CreateCustomer>
         try
         {
             var customer = await _customerService.CreateCustomerAsync(context.Message, context.CancellationToken);
-
-            await context.Publish(new CustomerCreated
-            {
-                CustomerId = customer.Id,
-                CompanyName = customer.CompanyName,
-                DisplayName = customer.DisplayName,
-                Email = customer.Email,
-                CreatedAt = customer.CreatedAt
-            });
+            // CustomerCreated is published by CustomerService
 
             _logger.LogInformation("Customer {CustomerId} created via MassTransit and persisted", customer.Id);
 

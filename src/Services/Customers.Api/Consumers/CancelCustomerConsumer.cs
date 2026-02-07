@@ -1,5 +1,4 @@
 using Contracts.Commands.Customers;
-using Contracts.Events.Customers;
 using MassTransit;
 using Customers.Api.Services;
 
@@ -34,17 +33,9 @@ public class CancelCustomerConsumer : IConsumer<CancelCustomer>
                 });
                 return;
             }
+            // CustomerCancelled is published by CustomerService
 
-            if (customer.CancelledAt.HasValue)
-            {
-                await context.Publish(new CustomerCancelled
-                {
-                    CustomerId = customer.Id,
-                    CancellationReason = customer.CancellationReason ?? message.CancellationReason,
-                    CancelledAt = customer.CancelledAt.Value
-                });
-                _logger.LogInformation("Customer {CustomerId} cancelled via MassTransit", customer.Id);
-            }
+            _logger.LogInformation("Customer {CustomerId} cancelled via MassTransit", customer.Id);
 
             await context.RespondAsync(new CancelCustomerResponse
             {
