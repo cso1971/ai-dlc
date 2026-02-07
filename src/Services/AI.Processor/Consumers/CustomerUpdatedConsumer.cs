@@ -1,0 +1,78 @@
+using AI.Processor.Clients;
+using AI.Processor.Services;
+using Contracts.Events.Customers;
+using MassTransit;
+
+namespace AI.Processor.Consumers;
+
+public class CustomerUpdatedConsumer : IConsumer<CustomerUpdated>
+{
+    private readonly IOllamaService _ollamaService;
+    private readonly IQdrantService _qdrantService;
+    private readonly ICustomerApiClient _customerApiClient;
+    private readonly ILogger<CustomerUpdatedConsumer> _logger;
+
+    public CustomerUpdatedConsumer(
+        IOllamaService ollamaService,
+        IQdrantService qdrantService,
+        ICustomerApiClient customerApiClient,
+        ILogger<CustomerUpdatedConsumer> logger)
+    {
+        _ollamaService = ollamaService;
+        _qdrantService = qdrantService;
+        _customerApiClient = customerApiClient;
+        _logger = logger;
+    }
+
+    public async Task Consume(ConsumeContext<CustomerUpdated> context)
+    {
+        var message = context.Message;
+        _logger.LogInformation("Processing CustomerUpdated event for Customer {CustomerId}", message.CustomerId);
+
+        try
+        {
+            var customer = await _customerApiClient.GetCustomerAsync(message.CustomerId, context.CancellationToken);
+
+            if (customer == null)
+            {
+                _logger.LogWarning("Could not fetch customer {CustomerId} from API, skipping RAG update", message.CustomerId);
+                return;
+            }
+
+            var customerText = customer.ToTextForEmbedding();
+            var embedding = await _ollamaService.GenerateEmbeddingAsync(customerText, context.CancellationToken);
+            var payload = BuildCustomerPayload(customer);
+
+            await _qdrantService.UpsertCustomerAsync(message.CustomerId, embedding, payload, context.CancellationToken);
+
+            _logger.LogInformation("Customer {CustomerId} updated in RAG. Company: {CompanyName}", message.CustomerId, customer.CompanyName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing CustomerUpdated event for Customer {CustomerId}", message.CustomerId);
+            throw;
+        }
+    }
+
+    private static Dictionary<string, object> BuildCustomerPayload(CustomerResponse customer)
+    {
+        return new Dictionary<string, object>
+        {
+            ["customerId"] = customer.Id.ToString(),
+            ["companyName"] = customer.CompanyName,
+            ["displayName"] = customer.DisplayName ?? "",
+            ["email"] = customer.Email,
+            ["phone"] = customer.Phone ?? "",
+            ["taxId"] = customer.TaxId ?? "",
+            ["vatNumber"] = customer.VatNumber ?? "",
+            ["preferredLanguage"] = customer.PreferredLanguage,
+            ["preferredCurrency"] = customer.PreferredCurrency,
+            ["createdAt"] = customer.CreatedAt.ToString("O"),
+            ["billingCity"] = customer.BillingAddress?.City ?? "",
+            ["billingCountry"] = customer.BillingAddress?.CountryCode ?? "",
+            ["shippingCity"] = customer.ShippingAddress?.City ?? "",
+            ["shippingCountry"] = customer.ShippingAddress?.CountryCode ?? "",
+            ["customerText"] = customer.ToTextForEmbedding()
+        };
+    }
+}

@@ -312,6 +312,8 @@ curl -X POST http://localhost:5010/api/ai/search \
 | `OrderCancelledConsumer` | `OrderCancelled` | Analyze cancellation reasons for insights |
 | `OrderCompletedConsumer` | `OrderCompleted` | Generate order summary, final embedding |
 | `CustomerCreatedConsumer` | `CustomerCreated` | Fetch customer via REST, generate embedding, store in Qdrant (collection `customers`), analyze with LLM |
+| `CustomerUpdatedConsumer` | `CustomerUpdated` | Fetch customer via REST, generate embedding, upsert in Qdrant (collection `customers`) |
+| `CustomerCancelledConsumer` | `CustomerCancelled` | Remove customer point from Qdrant (collection `customers`) |
 
 ### Configuration
 
@@ -550,6 +552,8 @@ Click the 🤖 button to open/close the panel.
 | `OrderCompleted` | Ordering | Order workflow completed (invoiced) |
 | `OrderCancelled` | Ordering | Order was cancelled |
 | `CustomerCreated` | Customers | Customer was created |
+| `CustomerUpdated` | Customers | Customer was updated |
+| `CustomerCancelled` | Customers | Customer was cancelled (soft delete) |
 | `InvoiceGenerated` | Invoicing | Invoice was generated |
 
 ## Database Schema

@@ -64,6 +64,8 @@ builder.Services.AddMassTransit(x =>
     x.AddConsumer<OrderCancelledConsumer>();
     x.AddConsumer<OrderCompletedConsumer>();
     x.AddConsumer<CustomerCreatedConsumer>();
+    x.AddConsumer<CustomerUpdatedConsumer>();
+    x.AddConsumer<CustomerCancelledConsumer>();
 
     x.SetKebabCaseEndpointNameFormatter();
 

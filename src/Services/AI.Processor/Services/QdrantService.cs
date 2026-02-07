@@ -219,4 +219,21 @@ public class QdrantService : IQdrantService
             throw;
         }
     }
+
+    public async Task DeleteCustomerAsync(Guid customerId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await _client.DeleteAsync(
+                _customersCollectionName,
+                ids: new[] { customerId },
+                cancellationToken: cancellationToken);
+            _logger.LogDebug("Deleted customer {CustomerId} from collection {Collection}", customerId, _customersCollectionName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting customer {CustomerId}", customerId);
+            throw;
+        }
+    }
 }
