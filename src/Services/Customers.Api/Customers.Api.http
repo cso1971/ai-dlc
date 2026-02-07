@@ -1,6 +1,36 @@
-@Customers.Api_HostAddress = http://localhost:5221
+@Customers.Api_HostAddress = http://localhost:5003
 
-GET {{Customers.Api_HostAddress}}/weatherforecast/
+### Service status
+GET {{Customers.Api_HostAddress}}/
 Accept: application/json
 
-###
+### Health
+GET {{Customers.Api_HostAddress}}/health
+
+### Create customer (REST -> MassTransit command)
+POST {{Customers.Api_HostAddress}}/api/customers
+Content-Type: application/json
+
+{
+  "companyName": "Acme Corp",
+  "displayName": "Acme",
+  "email": "billing@acme.example.com",
+  "phone": "+39 02 1234567",
+  "taxId": "IT12345678901",
+  "vatNumber": "IT12345678901",
+  "billingAddress": {
+    "recipientName": "Acme Corp",
+    "addressLine1": "Via Roma 1",
+    "addressLine2": null,
+    "city": "Milano",
+    "stateOrProvince": "MI",
+    "postalCode": "20100",
+    "countryCode": "IT",
+    "phoneNumber": "+39 02 1234567",
+    "notes": null
+  },
+  "shippingAddress": null,
+  "preferredLanguage": "it",
+  "preferredCurrency": "EUR",
+  "notes": "First customer"
+}

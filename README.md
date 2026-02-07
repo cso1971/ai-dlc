@@ -121,6 +121,8 @@ dotnet run --project src/Services/Customers.Api
 | Service | Swagger | API Base |
 |---------|---------|----------|
 | Ordering API | http://localhost:5001/swagger | http://localhost:5001/api |
+| Invoicing API | http://localhost:5002/swagger | http://localhost:5002/api |
+| Customers API | http://localhost:5003/swagger | http://localhost:5003/api |
 | AI Processor | http://localhost:5010/swagger | http://localhost:5010/api |
 | Angular Frontend | http://localhost:4200 | - |
 
@@ -208,6 +210,33 @@ CreateOrder ──▶ StartProcessing ──▶ Ship ──▶ Deliver ──▶
 - RecipientName, AddressLine1, AddressLine2
 - City, StateOrProvince, PostalCode, CountryCode
 - PhoneNumber, Notes
+
+## Customers API
+
+### Swagger UI
+
+**URL:** http://localhost:5003/swagger
+
+### REST Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/customers` | Create a new customer (DDD-style data; persistence in a later step) |
+
+### MassTransit Consumers (RabbitMQ)
+
+| Consumer | Command | Queue |
+|----------|---------|-------|
+| `CreateCustomerConsumer` | `CreateCustomer` | `create-customer` |
+
+The REST `POST /api/customers` uses the same command via `IRequestClient<CreateCustomer>`; the consumer returns `CreateCustomerResponse` and publishes `CustomerCreated` event. Customer aggregate, service, repository and EF persistence are planned for a later step.
+
+### CreateCustomer payload (DDD-style)
+
+- **CompanyName**, **Email** (required)
+- **DisplayName**, **Phone**, **TaxId**, **VatNumber**, **Notes**
+- **BillingAddress**, **ShippingAddress** (PostalAddress: RecipientName, AddressLine1, City, PostalCode, CountryCode, etc.)
+- **PreferredLanguage** (default `en`), **PreferredCurrency** (default `EUR`)
 
 ## AI.Processor (AI Service with REST API)
 

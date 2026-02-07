@@ -1,7 +1,9 @@
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.OpenApi.Models;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using Customers.Api.Endpoints;
 using Customers.Api.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -65,26 +67,62 @@ builder.Services.AddHealthChecks()
     .AddRabbitMQ(rabbitConnectionString: $"amqp://{configuration["RabbitMQ:Username"]}:{configuration["RabbitMQ:Password"]}@{configuration["RabbitMQ:Host"]}:5672", name: "rabbitmq");
 
 // ===========================================
-// API
+// OpenAPI / Swagger
 // ===========================================
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "Customers API",
+        Version = "v1",
+        Description = "Customer management API for the Distributed Playground",
+        Contact = new OpenApiContact
+        {
+            Name = "Distributed Playground"
+        }
+    });
+});
+
+// ===========================================
+// CORS (for Angular frontend)
+// ===========================================
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.WithOrigins("http://localhost:4200")
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
 
 var app = builder.Build();
 
 // ===========================================
 // Middleware Pipeline
 // ===========================================
+app.UseCors("AllowFrontend");
+
+app.UseSwagger();
+app.UseSwaggerUI(options =>
+{
+    options.SwaggerEndpoint("/swagger/v1/swagger.json", "Customers API v1");
+    options.RoutePrefix = "swagger";
+});
+
 app.UseHttpsRedirection();
 
 // Health check endpoint
 app.MapHealthChecks("/health");
 
-// Sample endpoint - replace with your domain endpoints
-app.MapGet("/", () => Results.Ok(new { Service = serviceName, Status = "Running" }));
+// Service info endpoint
+app.MapGet("/", () => Results.Ok(new { Service = serviceName, Status = "Running" }))
+    .WithTags("Health")
+    .WithSummary("Service status")
+    .ExcludeFromDescription();
 
-app.MapGet("/api/customers", () =>
-{
-    return Results.Ok(new[] { new { Id = 1, Name = "Sample Customer" } });
-});
+// Customer REST API
+app.MapCustomerEndpoints();
 
 app.Run();
