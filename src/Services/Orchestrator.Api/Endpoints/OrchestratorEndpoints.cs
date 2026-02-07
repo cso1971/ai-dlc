@@ -8,13 +8,24 @@ public static class OrchestratorEndpoints
     {
         var group = app.MapGroup("/api/orchestrator").WithTags("Orchestrator");
 
-        group.MapPost("/chat", async (ChatRequest request, Kernel kernel, CancellationToken cancellationToken) =>
+        group.MapPost("/chat", async (ChatRequest request, Kernel kernel, ILogger<Program> logger, CancellationToken cancellationToken) =>
         {
             if (string.IsNullOrWhiteSpace(request.Prompt))
                 return Results.BadRequest(new { Message = "Prompt is required." });
-            var result = await kernel.InvokePromptAsync(request.Prompt, cancellationToken: cancellationToken);
-            var response = result.GetValue<string>() ?? string.Empty;
-            return Results.Ok(new ChatResponse(response));
+            try
+            {
+                var result = await kernel.InvokePromptAsync(request.Prompt, cancellationToken: cancellationToken);
+                var response = result.GetValue<string>() ?? string.Empty;
+                return Results.Ok(new ChatResponse(response));
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Orchestrator chat failed for prompt: {Prompt}", request.Prompt);
+                var message = ex.Message;
+                if (ex.InnerException != null)
+                    message += " " + ex.InnerException.Message;
+                return Results.Ok(new ChatResponse($"Si è verificato un errore durante l'elaborazione: {message}."));
+            }
         })
         .WithName("Chat")
         .WithSummary("Chat with Semantic Kernel")
