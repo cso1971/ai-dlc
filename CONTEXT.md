@@ -208,7 +208,7 @@ dotnet run --project src/Tools/OrderSimulator -- -n 20 -w false
 
 2. **Completare bounded contexts**
    - Implementare Invoicing.Api
-   - Customers.Api: creati endpoint REST POST /api/customers e consumer MassTransit CreateCustomer; da fare CustomerService, aggregato DDD, CustomersRepository, DbContext/EF
+   - Customers.Api: REST + MassTransit CreateCustomer; aggiunto dominio Customer (aggregate root) e PostalAddress (value object), pronti per EF; da fare CustomerService, CustomersRepository, configurazione DbContext/migrations
 
 3. **Migliorare RAG**
    - Aggiungere filtri (status, date range)
