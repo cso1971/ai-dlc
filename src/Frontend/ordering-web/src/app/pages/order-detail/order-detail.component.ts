@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { OrderService } from '../../services/order.service';
+import { CustomerService } from '../../services/customer.service';
 import { Order, OrderStatus, getStatusLabel, getStatusColor } from '../../models/order.models';
 
 @Component({
@@ -14,6 +15,7 @@ import { Order, OrderStatus, getStatusLabel, getStatusColor } from '../../models
 })
 export class OrderDetailComponent implements OnInit {
   order: Order | null = null;
+  customerDisplayName: string | null = null;
   loading = false;
   error: string | null = null;
   actionLoading = false;
@@ -36,7 +38,8 @@ export class OrderDetailComponent implements OnInit {
   constructor(
     private route: ActivatedRoute,
     private router: Router,
-    private orderService: OrderService
+    private orderService: OrderService,
+    private customerService: CustomerService
   ) {}
 
   ngOnInit(): void {
@@ -53,6 +56,13 @@ export class OrderDetailComponent implements OnInit {
       next: (order) => {
         this.order = order;
         this.loading = false;
+        this.customerDisplayName = null;
+        if (order.customerId) {
+          this.customerService.getCustomer(order.customerId).subscribe({
+            next: (c) => { this.customerDisplayName = c.displayName || c.companyName; },
+            error: () => { /* keep null: template will show customerId */ }
+          });
+        }
       },
       error: (err) => {
         this.error = 'Failed to load order: ' + (err.error?.message || err.message || 'Unknown error');

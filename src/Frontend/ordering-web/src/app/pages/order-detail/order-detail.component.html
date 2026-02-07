@@ -48,8 +48,13 @@
       <div class="info-card">
         <h3>Order Information</h3>
         <div class="info-row">
-          <span class="label">Customer ID</span>
-          <span class="value">{{ order.customerId }}</span>
+          <span class="label">Customer</span>
+          <span class="value">
+            <a *ngIf="order.customerId" [routerLink]="['/customers', order.customerId]" class="customer-link">
+              {{ customerDisplayName ?? order.customerId }}
+            </a>
+            <span *ngIf="!order.customerId">-</span>
+          </span>
         </div>
         <div class="info-row">
           <span class="label">Customer Ref</span>
