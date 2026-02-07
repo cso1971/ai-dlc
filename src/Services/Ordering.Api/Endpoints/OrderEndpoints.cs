@@ -98,7 +98,7 @@ public static class OrderEndpoints
         return Results.Ok(MapToResponse(order));
     }
 
-    private static async Task<IResult> CreateOrder(CreateOrderRequest request, OrderingService service)
+    private static async Task<IResult> CreateOrder(CreateOrderRequest request, OrderingService service, CancellationToken cancellationToken)
     {
         var command = new CreateOrder
         {
@@ -125,7 +125,7 @@ public static class OrderEndpoints
 
         try
         {
-            var order = await service.CreateOrderAsync(command);
+            var order = await service.CreateOrderAsync(command, cancellationToken);
             return Results.Created($"/api/orders/{order.Id}", MapToResponse(order));
         }
         catch (Exception ex)

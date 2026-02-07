@@ -14,8 +14,13 @@
       <h2>Order Information</h2>
       <div class="form-grid">
         <div class="form-group">
-          <label>Customer ID *</label>
-          <input type="text" [(ngModel)]="order.customerId" name="customerId" required readonly>
+          <label>Customer *</label>
+          <select *ngIf="!customersLoading && !customersError" [(ngModel)]="order.customerId" name="customerId" required>
+            <option value="">-- Select customer --</option>
+            <option *ngFor="let c of customers" [value]="c.id">{{ customerDisplayName(c) }} ({{ c.companyName }})</option>
+          </select>
+          <p *ngIf="customersLoading" class="loading-hint">Loading customers...</p>
+          <p *ngIf="customersError" class="error-hint">{{ customersError }}</p>
         </div>
         <div class="form-group">
           <label>Customer Reference</label>
@@ -187,7 +192,7 @@
     <!-- Submit -->
     <div class="form-actions">
       <a routerLink="/orders" class="btn btn-secondary">Cancel</a>
-      <button type="submit" [disabled]="saving || order.lines.length === 0" class="btn btn-primary">
+      <button type="submit" [disabled]="saving || customersLoading || !!customersError || order.lines.length === 0" class="btn btn-primary">
         {{ saving ? 'Creating...' : 'Create Order' }}
       </button>
     </div>

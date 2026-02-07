@@ -1,7 +1,7 @@
 # 🧠 CONTEXT.md - Session Summary
 
 > Questo file contiene il contesto e la cronologia delle decisioni prese durante lo sviluppo del progetto.
-> Ultimo aggiornamento: 2026-01-30
+> Ultimo aggiornamento: 2026-02-07
 
 ---
 
@@ -90,6 +90,7 @@
 ### 2. **Riferimento Order → Customer (integrazione tra bounded context)**
 - L’aggregato **Order** (Ordering) riferisce il **Customer** (Customers) tramite **CustomerId** (stesso Guid di `Customer.Id`). Nessuna FK fisica tra DB; riferimento logico tra context.
 - **CustomerReference** resta un campo opzionale: riferimento ordine lato cliente (es. numero PO, loro riferimento), non l’identità del cliente.
+- **Implementazione**: Ordering.Api chiama Customers.Api (HTTP client) per validare che il CustomerId esista in fase di CreateOrder; in caso contrario restituisce 400. Frontend (creazione ordine) e Order Simulator usano la lista clienti da Customers API per selezionare/assegnare il CustomerId.
 
 ### 3. **AI.Processor come servizio separato**
 - Disaccoppia elaborazione AI dal dominio business

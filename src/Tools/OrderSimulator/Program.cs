@@ -1,4 +1,4 @@
-﻿using System.CommandLine;
+using System.CommandLine;
 using System.Net.Http.Json;
 using Bogus;
 using Contracts.Commands.Ordering;
@@ -74,6 +74,11 @@ var rabbitPasswordOption = new Option<string>(
     description: "RabbitMQ password",
     getDefaultValue: () => "playground_pwd");
 
+var customersApiOption = new Option<string>(
+    name: "--customers-api",
+    description: "Customers API base URL (to resolve customer IDs for orders)",
+    getDefaultValue: () => "http://localhost:5003");
+
 var rootCommand = new RootCommand("Order Simulator - Generate test orders and simulate workflows")
 {
     ordersOption,
@@ -81,10 +86,11 @@ var rootCommand = new RootCommand("Order Simulator - Generate test orders and si
     delayOption,
     rabbitHostOption,
     rabbitUserOption,
-    rabbitPasswordOption
+    rabbitPasswordOption,
+    customersApiOption
 };
 
-rootCommand.SetHandler(async (int orders, bool simulateWorkflow, int delay, string rabbitHost, string rabbitUser, string rabbitPassword) =>
+rootCommand.SetHandler(async (int orders, bool simulateWorkflow, int delay, string rabbitHost, string rabbitUser, string rabbitPassword, string customersApi) =>
 {
     Console.WriteLine("╔══════════════════════════════════════════════════════════════╗");
     Console.WriteLine("║              ORDER SIMULATOR - Distributed Playground        ║");
@@ -94,7 +100,34 @@ rootCommand.SetHandler(async (int orders, bool simulateWorkflow, int delay, stri
     Console.WriteLine($"  🔄 Simulate workflow: {simulateWorkflow}");
     Console.WriteLine($"  ⏱️  Delay: {delay}ms");
     Console.WriteLine($"  🐰 RabbitMQ: {rabbitHost}");
+    Console.WriteLine($"  👥 Customers API: {customersApi}");
     Console.WriteLine();
+
+    // Fetch customer IDs from Customers API (orders must reference existing customers)
+    var customersHttp = new HttpClient { BaseAddress = new Uri(customersApi.TrimEnd('/') + "/") };
+    List<Guid> customerIds;
+    try
+    {
+        var customers = await customersHttp.GetFromJsonAsync<List<CustomerSummaryDto>>("api/customers");
+        customerIds = (customers ?? new List<CustomerSummaryDto>())
+            .Where(c => c.IsActive)
+            .Select(c => c.Id)
+            .ToList();
+        if (customerIds.Count == 0)
+        {
+            Console.WriteLine("⚠️  No active customers found. Create customers first (e.g. via Customers.Api or frontend).");
+            return;
+        }
+        Console.WriteLine($"✅ Loaded {customerIds.Count} customer(s) from Customers API");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"⚠️  Could not load customers from {customersApi}: {ex.Message}");
+        Console.WriteLine("    Make sure Customers.Api is running (e.g. http://localhost:5003)");
+        return;
+    }
+
+    var random = new Random();
 
     // Setup MassTransit
     var services = new ServiceCollection();
@@ -118,7 +151,6 @@ rootCommand.SetHandler(async (int orders, bool simulateWorkflow, int delay, stri
     Console.WriteLine();
 
     var createdOrderIds = new List<Guid>();
-    var random = new Random();
     var sendEndpoint = await busControl.GetSendEndpoint(new Uri("queue:create-order"));
 
     // ===== Phase 1: Create Orders =====
@@ -134,7 +166,7 @@ rootCommand.SetHandler(async (int orders, bool simulateWorkflow, int delay, stri
         // Use reflection or create a new command with the ID
         var createCommand = new CreateOrder
         {
-            CustomerId = order.CustomerId,
+            CustomerId = customerIds[random.Next(customerIds.Count)],
             CustomerReference = order.CustomerReference,
             RequestedDeliveryDate = order.RequestedDeliveryDate,
             Priority = order.Priority,
@@ -330,9 +362,11 @@ rootCommand.SetHandler(async (int orders, bool simulateWorkflow, int delay, stri
     await busControl.StopAsync();
     Console.WriteLine("✅ Simulation finished!");
 
-}, ordersOption, simulateWorkflowOption, delayOption, rabbitHostOption, rabbitUserOption, rabbitPasswordOption);
+}, ordersOption, simulateWorkflowOption, delayOption, rabbitHostOption, rabbitUserOption, rabbitPasswordOption, customersApiOption);
 
 return await rootCommand.InvokeAsync(args);
 
-// ===== DTOs for API response =====
+// ===== DTOs for API responses =====
 record OrderSummary(Guid Id, Guid CustomerId, string? CustomerReference, string Status, DateTime CreatedAt, decimal GrandTotal, int LineCount);
+
+record CustomerSummaryDto(Guid Id, string CompanyName, string? DisplayName, string Email, DateTime CreatedAt, bool IsActive);

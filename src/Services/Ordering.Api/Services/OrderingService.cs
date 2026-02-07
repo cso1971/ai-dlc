@@ -2,6 +2,7 @@ using Contracts.Commands.Ordering;
 using Contracts.Events.Ordering;
 using Contracts.Enums;
 using MassTransit;
+using Ordering.Api.Clients;
 using Ordering.Api.Domain;
 
 namespace Ordering.Api.Services;
@@ -10,20 +11,27 @@ public class OrderingService
 {
     private readonly IOrderRepository _repository;
     private readonly IPublishEndpoint _publishEndpoint;
+    private readonly ICustomersApiClient _customersApiClient;
     private readonly ILogger<OrderingService> _logger;
 
     public OrderingService(
         IOrderRepository repository,
         IPublishEndpoint publishEndpoint,
+        ICustomersApiClient customersApiClient,
         ILogger<OrderingService> logger)
     {
         _repository = repository;
         _publishEndpoint = publishEndpoint;
+        _customersApiClient = customersApiClient;
         _logger = logger;
     }
 
     public async Task<Order> CreateOrderAsync(CreateOrder command, CancellationToken cancellationToken = default)
     {
+        var exists = await _customersApiClient.CustomerExistsAsync(command.CustomerId, cancellationToken);
+        if (!exists)
+            throw new InvalidOperationException($"Customer {command.CustomerId} not found in Customers context.");
+
         _logger.LogInformation("Creating order for customer {CustomerId}", command.CustomerId);
 
         var lines = command.Lines.Select(l => OrderLine.Create(

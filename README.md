@@ -195,6 +195,8 @@ CreateOrder ──▶ StartProcessing ──▶ Ship ──▶ Deliver ──▶
 
 **Order (Aggregate Root)**
 - Header: CustomerId, CustomerReference, RequestedDeliveryDate, Priority, CurrencyCode, PaymentTerms, ShippingMethod, ShippingAddress, Notes
+- **CustomerId**: reference to the Customer aggregate in the Customers bounded context (same Guid as `Customer.Id`). The customer must exist; Ordering API validates it via Customers API when creating an order.
+- **CustomerReference**: optional order reference from the customer’s side (e.g. PO number), not the customer identity.
 - Status tracking: Status, CreatedAt, UpdatedAt
 - Shipping: TrackingNumber, Carrier, EstimatedDeliveryDate, ShippedAt
 - Delivery: DeliveredAt, ReceivedBy, DeliveryNotes
@@ -628,10 +630,11 @@ dotnet run --project src/Tools/OrderSimulator -- --help
 | `--rabbit-host` | | RabbitMQ host | localhost |
 | `--rabbit-user` | | RabbitMQ username | playground |
 | `--rabbit-password` | | RabbitMQ password | playground_pwd |
+| `--customers-api` | | Customers API base URL (for resolving customer IDs) | http://localhost:5003 |
 
 ### Simulation Phases
 
-1. **Create Orders**: Generates random orders with fake customer data, products, addresses
+1. **Create Orders**: Loads active customer IDs from Customers API, then generates random orders (products, addresses) assigning each order to one of those customers.
 2. **Fetch Orders**: Gets created order IDs from Ordering API
 3. **Workflow Transitions**: Randomly applies:
    - Start Processing
@@ -642,7 +645,8 @@ dotnet run --project src/Tools/OrderSimulator -- --help
 
 ### Prerequisites
 
-Requires Ordering.Api to be running on `http://localhost:5001` for workflow simulation.
+- **Customers.Api** on `http://localhost:5003`: required to load customer IDs; create at least one customer (e.g. via frontend or API) before running the simulator.
+- **Ordering.Api** on `http://localhost:5001`: required for workflow simulation (fetch created orders and apply transitions).
 
 ## Development Notes
 

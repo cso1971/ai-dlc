@@ -1,9 +1,11 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { OrderService } from '../../services/order.service';
+import { CustomerService } from '../../services/customer.service';
 import { CreateOrderRequest, CreateOrderLineRequest, ShippingAddress } from '../../models/order.models';
+import { CustomerSummary } from '../../models/customer.models';
 
 @Component({
   selector: 'app-order-create',
@@ -12,9 +14,12 @@ import { CreateOrderRequest, CreateOrderLineRequest, ShippingAddress } from '../
   templateUrl: './order-create.component.html',
   styleUrl: './order-create.component.scss'
 })
-export class OrderCreateComponent {
+export class OrderCreateComponent implements OnInit {
   saving = false;
   error: string | null = null;
+  customers: CustomerSummary[] = [];
+  customersLoading = true;
+  customersError: string | null = null;
 
   order: CreateOrderRequest = {
     customerId: '',
@@ -53,10 +58,24 @@ export class OrderCreateComponent {
 
   constructor(
     private orderService: OrderService,
+    private customerService: CustomerService,
     private router: Router
-  ) {
-    // Generate a random customer ID for demo
-    this.order.customerId = this.generateGuid();
+  ) {}
+
+  ngOnInit(): void {
+    this.customerService.getCustomers().subscribe({
+      next: (list) => {
+        this.customers = list.filter(c => c.isActive);
+        this.customersLoading = false;
+        if (this.customers.length > 0 && !this.order.customerId) {
+          this.order.customerId = this.customers[0].id;
+        }
+      },
+      error: (err) => {
+        this.customersError = 'Failed to load customers: ' + (err.error?.message || err.message || 'Unknown error');
+        this.customersLoading = false;
+      }
+    });
   }
 
   addLine(): void {
@@ -108,6 +127,10 @@ export class OrderCreateComponent {
   }
 
   submit(): void {
+    if (!this.order.customerId) {
+      this.error = 'Please select a customer';
+      return;
+    }
     if (this.order.lines.length === 0) {
       this.error = 'Please add at least one line item';
       return;
@@ -132,11 +155,7 @@ export class OrderCreateComponent {
     });
   }
 
-  generateGuid(): string {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-      const r = Math.random() * 16 | 0;
-      const v = c === 'x' ? r : (r & 0x3 | 0x8);
-      return v.toString(16);
-    });
+  customerDisplayName(c: CustomerSummary): string {
+    return c.displayName || c.companyName;
   }
 }

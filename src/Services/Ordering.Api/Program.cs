@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using Ordering.Api.Clients;
 using Ordering.Api.Endpoints;
 using Ordering.Api.Infrastructure;
 using Ordering.Api.Services;
@@ -26,6 +27,14 @@ builder.Services.AddDbContext<OrderingDbContext>(options =>
 // ===========================================
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<OrderingService>();
+
+// HTTP client for Customers bounded context (validate CustomerId on create order)
+var customersBaseUrl = configuration["CustomersApi:BaseUrl"] ?? "http://localhost:5003";
+builder.Services.AddHttpClient<ICustomersApiClient, CustomersApiClient>(client =>
+{
+    client.BaseAddress = new Uri(customersBaseUrl.TrimEnd('/') + "/");
+    client.Timeout = TimeSpan.FromSeconds(5);
+});
 
 // ===========================================
 // MassTransit + RabbitMQ
