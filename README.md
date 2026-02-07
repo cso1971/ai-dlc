@@ -513,13 +513,20 @@ Angular 17 SPA for managing orders and customers.
 
 ### Running the Frontend
 
+**Prerequisites:** Node.js and npm must be installed and in your PATH.
+
 ```powershell
 cd src/Frontend/ordering-web
 npm install
 npm start
 ```
 
-**URL:** http://localhost:4200
+**URL:** http://localhost:4200 (or http://127.0.0.1:4200 — CORS allows both)
+
+**If the UI doesn’t start or load:**
+- Ensure **Node.js** is installed and `node` / `npm` are available in the terminal (e.g. `node -v`, `npm -v`).
+- Run the commands above from the project root or from `src/Frontend/ordering-web`.
+- For the app to work fully, the **backends** must be running: Ordering.Api (5001), Customers.Api (5003), and optionally AI.Processor (5010), Orchestrator.Api (5020). Otherwise lists will be empty or the AI panel will show connection errors.
 
 ### Features
 
