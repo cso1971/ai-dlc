@@ -640,16 +640,16 @@ docker-compose --profile infra down -v
 
 ## Order Simulator Tool
 
-Console application to generate test orders and simulate workflow transitions.
+Console application to **create test customers** (via MassTransit) and **generate test orders**, then optionally simulate workflow transitions. Uses RabbitMQ for both `CreateCustomer` and `CreateOrder` commands.
 
 ### Usage
 
 ```powershell
-# Generate 10 orders with workflow simulation (default)
+# Generate 10 orders with workflow simulation (default); creates 10 customers first if none exist
 dotnet run --project src/Tools/OrderSimulator
 
-# Generate 50 orders without workflow
-dotnet run --project src/Tools/OrderSimulator -- -n 50 -w false
+# Create 15 customers (if none), then 50 orders, no workflow
+dotnet run --project src/Tools/OrderSimulator -- -c 15 -n 50 -w false
 
 # Generate 20 orders with 1 second delay between commands
 dotnet run --project src/Tools/OrderSimulator -- -n 20 -d 1000
@@ -663,30 +663,30 @@ dotnet run --project src/Tools/OrderSimulator -- --help
 | Option | Alias | Description | Default |
 |--------|-------|-------------|---------|
 | `--orders` | `-n` | Number of orders to create | 10 |
-| `--customers` | `-c` | Number of customers to create first (only when none exist) | 10 |
-| `--simulate-workflow` | `-w` | Simulate status transitions | true |
+| `--customers` | `-c` | Number of customers to create via MassTransit when no active customers exist | 10 |
+| `--simulate-workflow` | `-w` | Simulate status transitions after creating orders | true |
 | `--delay` | `-d` | Delay between commands (ms) | 500 |
 | `--rabbit-host` | | RabbitMQ host | localhost |
 | `--rabbit-user` | | RabbitMQ username | playground |
 | `--rabbit-password` | | RabbitMQ password | playground_pwd |
-| `--customers-api` | | Customers API base URL (only to fetch customer list after creation) | http://localhost:5003 |
+| `--customers-api` | | Customers API base URL (fetch customer list after creating via RabbitMQ or when reusing existing) | http://localhost:5003 |
 
 ### Simulation Phases
 
-0. **Create Customers (if none)**: If no active customers exist, sends `--customers` (default 10) **CreateCustomer** commands via MassTransit/RabbitMQ (`queue:create-customer`); then fetches the created customer IDs from Customers API (GET) for orders. This ensures **CustomerCreated** events are published and consumed by AI.Processor for Qdrant.
-1. **Create Orders**: Uses active customer IDs (from Phase 0 or existing), generates random orders (products, addresses) assigning each order to a random customer.
-2. **Fetch Orders**: Gets created order IDs from Ordering API
-3. **Workflow Transitions**: Randomly applies:
-   - Start Processing
-   - Ship (with random carrier and tracking)
-   - Deliver
-   - Invoice
-   - Cancel (10-20% of orders)
+0. **Create Customers (if none)**  
+   If no active customers exist, the tool sends `--customers` (default 10) **CreateCustomer** commands to RabbitMQ (`queue:create-customer`). Customers.Api consumes them and creates the customers; the simulator then waits ~3 s and fetches the new customer IDs via GET `api/customers`. **CustomerCreated** events are published so AI.Processor can index them in Qdrant. If customers already exist, they are reused and no new ones are created.
+1. **Create Orders**  
+   Uses the customer IDs (from Phase 0 or existing). Sends **CreateOrder** commands to RabbitMQ (`queue:create-order`) with random products, addresses, and one random customer per order.
+2. **Fetch Orders**  
+   Gets created order IDs from Ordering API (GET `api/orders`).
+3. **Workflow Transitions**  
+   If `--simulate-workflow` is true, randomly applies: Start Processing → Ship (carrier, tracking) → Deliver → Invoice, or Cancel for 10–20% of orders.
 
 ### Prerequisites
 
-- **Customers.Api** on `http://localhost:5003`: required to fetch the list of customers (after creating via MassTransit or when reusing existing ones). If no customers exist, the simulator sends CreateCustomer commands via RabbitMQ, then GETs the list.
-- **Ordering.Api** on `http://localhost:5001`: required for workflow simulation (fetch created orders and apply transitions).
+- **RabbitMQ** running (e.g. Docker infra): the simulator sends **CreateCustomer** and **CreateOrder** commands on the message bus.
+- **Customers.Api** on `http://localhost:5003`: consumes CreateCustomer; the simulator calls GET `api/customers` to obtain customer IDs (after creating or to reuse existing).
+- **Ordering.Api** on `http://localhost:5001`: consumes CreateOrder; required for workflow simulation (fetch orders and apply transitions).
 
 ## Development Notes
 
