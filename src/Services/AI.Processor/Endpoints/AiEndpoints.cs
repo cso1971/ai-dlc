@@ -37,29 +37,40 @@ public static class AiEndpoints
             var orderResults = await ordersTask;
             var customerResults = await customersTask;
             
-            // Step 3: Build context from both search results
+            // Step 3: Build context from both search results (no GUIDs: use ordinal labels and skip id fields in payload)
             var contextBuilder = new System.Text.StringBuilder();
+            var idKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "orderId", "customerId", "orderText", "customerText" };
             contextBuilder.AppendLine("=== DATI ORDINI DAL DATABASE ===");
             contextBuilder.AppendLine($"Trovati {orderResults.Count} ordini rilevanti:\n");
+            var orderIndex = 0;
             foreach (var result in orderResults)
             {
-                contextBuilder.AppendLine($"--- Ordine {result.OrderId} (relevance: {result.Score:F2}) ---");
+                orderIndex++;
+                contextBuilder.AppendLine($"--- Ordine #{orderIndex} (relevance: {result.Score:F2}) ---");
                 if (result.Payload != null)
                 {
                     foreach (var kvp in result.Payload)
+                    {
+                        if (idKeys.Contains(kvp.Key)) continue;
                         contextBuilder.AppendLine($"  {kvp.Key}: {kvp.Value}");
+                    }
                 }
                 contextBuilder.AppendLine();
             }
             contextBuilder.AppendLine("=== DATI CLIENTI DAL DATABASE ===");
             contextBuilder.AppendLine($"Trovati {customerResults.Count} clienti rilevanti:\n");
+            var customerIndex = 0;
             foreach (var result in customerResults)
             {
-                contextBuilder.AppendLine($"--- Cliente {result.CustomerId} (relevance: {result.Score:F2}) ---");
+                customerIndex++;
+                contextBuilder.AppendLine($"--- Cliente #{customerIndex} (relevance: {result.Score:F2}) ---");
                 if (result.Payload != null)
                 {
                     foreach (var kvp in result.Payload)
+                    {
+                        if (idKeys.Contains(kvp.Key)) continue;
                         contextBuilder.AppendLine($"  {kvp.Key}: {kvp.Value}");
+                    }
                 }
                 contextBuilder.AppendLine();
             }
@@ -70,6 +81,7 @@ public static class AiEndpoints
                 Rispondi SEMPRE basandoti sui dati di ordini e clienti forniti nel contesto.
                 Il contesto contiene due sezioni: DATI ORDINI e DATI CLIENTI. Usa entrambe se rilevanti per la domanda.
                 Se ti viene chiesto di contare o elencare, usa SOLO i dati forniti.
+                NON mostrare mai identificativi tecnici (GUID, UUID) nelle risposte. Descrivi ordini e clienti con dati leggibili: totale, valuta, azienda (companyName/displayName), città, riferimento ordine (customerReference), stato, ecc.
                 Se non trovi informazioni rilevanti nel contesto, dillo chiaramente.
                 Rispondi in italiano.
                 """;
