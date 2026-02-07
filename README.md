@@ -625,16 +625,18 @@ dotnet run --project src/Tools/OrderSimulator -- --help
 | Option | Alias | Description | Default |
 |--------|-------|-------------|---------|
 | `--orders` | `-n` | Number of orders to create | 10 |
+| `--customers` | `-c` | Number of customers to create first (only when none exist) | 10 |
 | `--simulate-workflow` | `-w` | Simulate status transitions | true |
 | `--delay` | `-d` | Delay between commands (ms) | 500 |
 | `--rabbit-host` | | RabbitMQ host | localhost |
 | `--rabbit-user` | | RabbitMQ username | playground |
 | `--rabbit-password` | | RabbitMQ password | playground_pwd |
-| `--customers-api` | | Customers API base URL (for resolving customer IDs) | http://localhost:5003 |
+| `--customers-api` | | Customers API base URL (create/fetch customers) | http://localhost:5003 |
 
 ### Simulation Phases
 
-1. **Create Orders**: Loads active customer IDs from Customers API, then generates random orders (products, addresses) assigning each order to one of those customers.
+0. **Create Customers (if none)**: If no active customers exist, creates `--customers` (default 10) via Customers API (POST), then uses their IDs for orders.
+1. **Create Orders**: Uses active customer IDs (from Phase 0 or existing), generates random orders (products, addresses) assigning each order to a random customer.
 2. **Fetch Orders**: Gets created order IDs from Ordering API
 3. **Workflow Transitions**: Randomly applies:
    - Start Processing
@@ -645,7 +647,7 @@ dotnet run --project src/Tools/OrderSimulator -- --help
 
 ### Prerequisites
 
-- **Customers.Api** on `http://localhost:5003`: required to load customer IDs; create at least one customer (e.g. via frontend or API) before running the simulator.
+- **Customers.Api** on `http://localhost:5003`: required. If no customers exist, the simulator creates some (see `--customers`); otherwise it uses existing ones.
 - **Ordering.Api** on `http://localhost:5001`: required for workflow simulation (fetch created orders and apply transitions).
 
 ## Development Notes

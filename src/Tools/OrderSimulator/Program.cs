@@ -76,12 +76,19 @@ var rabbitPasswordOption = new Option<string>(
 
 var customersApiOption = new Option<string>(
     name: "--customers-api",
-    description: "Customers API base URL (to resolve customer IDs for orders)",
+    description: "Customers API base URL (to create/fetch customers)",
     getDefaultValue: () => "http://localhost:5003");
+
+var customersOption = new Option<int>(
+    name: "--customers",
+    description: "Number of customers to create before orders (if none exist)",
+    getDefaultValue: () => 10);
+customersOption.AddAlias("-c");
 
 var rootCommand = new RootCommand("Order Simulator - Generate test orders and simulate workflows")
 {
     ordersOption,
+    customersOption,
     simulateWorkflowOption,
     delayOption,
     rabbitHostOption,
@@ -90,12 +97,13 @@ var rootCommand = new RootCommand("Order Simulator - Generate test orders and si
     customersApiOption
 };
 
-rootCommand.SetHandler(async (int orders, bool simulateWorkflow, int delay, string rabbitHost, string rabbitUser, string rabbitPassword, string customersApi) =>
+rootCommand.SetHandler(async (int orders, int customersToCreate, bool simulateWorkflow, int delay, string rabbitHost, string rabbitUser, string rabbitPassword, string customersApi) =>
 {
     Console.WriteLine("╔══════════════════════════════════════════════════════════════╗");
     Console.WriteLine("║              ORDER SIMULATOR - Distributed Playground        ║");
     Console.WriteLine("╚══════════════════════════════════════════════════════════════╝");
     Console.WriteLine();
+    Console.WriteLine($"  👥 Customers to create (if needed): {customersToCreate}");
     Console.WriteLine($"  📦 Orders to create: {orders}");
     Console.WriteLine($"  🔄 Simulate workflow: {simulateWorkflow}");
     Console.WriteLine($"  ⏱️  Delay: {delay}ms");
@@ -103,26 +111,63 @@ rootCommand.SetHandler(async (int orders, bool simulateWorkflow, int delay, stri
     Console.WriteLine($"  👥 Customers API: {customersApi}");
     Console.WriteLine();
 
-    // Fetch customer IDs from Customers API (orders must reference existing customers)
+    // Customers API client
     var customersHttp = new HttpClient { BaseAddress = new Uri(customersApi.TrimEnd('/') + "/") };
     List<Guid> customerIds;
     try
     {
-        var customers = await customersHttp.GetFromJsonAsync<List<CustomerSummaryDto>>("api/customers");
-        customerIds = (customers ?? new List<CustomerSummaryDto>())
+        var existing = await customersHttp.GetFromJsonAsync<List<CustomerSummaryDto>>("api/customers");
+        customerIds = (existing ?? new List<CustomerSummaryDto>())
             .Where(c => c.IsActive)
             .Select(c => c.Id)
             .ToList();
-        if (customerIds.Count == 0)
+
+        if (customerIds.Count == 0 && customersToCreate > 0)
         {
-            Console.WriteLine("⚠️  No active customers found. Create customers first (e.g. via Customers.Api or frontend).");
+            // Phase 0: Create customers first
+            Console.WriteLine("═══════════════════════════════════════════════════════════════");
+            Console.WriteLine($"  PHASE 0: Creating {customersToCreate} Customers");
+            Console.WriteLine("═══════════════════════════════════════════════════════════════");
+            var customerFaker = new Faker<CreateCustomerRequestDto>()
+                .RuleFor(x => x.CompanyName, f => f.Company.CompanyName())
+                .RuleFor(x => x.DisplayName, f => f.Company.CompanyName(1))
+                .RuleFor(x => x.Email, f => f.Internet.Email())
+                .RuleFor(x => x.Phone, f => f.Phone.PhoneNumber())
+                .RuleFor(x => x.PreferredLanguage, f => f.PickRandom("en", "it", "de", "fr"))
+                .RuleFor(x => x.PreferredCurrency, f => f.PickRandom("EUR", "USD", "GBP"));
+            for (int i = 1; i <= customersToCreate; i++)
+            {
+                var req = customerFaker.Generate();
+                var response = await customersHttp.PostAsJsonAsync("api/customers", req);
+                if (!response.IsSuccessStatusCode)
+                {
+                    Console.WriteLine($"⚠️  Failed to create customer {i}: {response.StatusCode}");
+                    continue;
+                }
+                var created = await response.Content.ReadFromJsonAsync<CreateCustomerResponseDto>();
+                if (created != null)
+                {
+                    customerIds.Add(created.Id);
+                    Console.WriteLine($"  [{i:D2}/{customersToCreate}] 👤 {req.CompanyName} ({req.Email})");
+                }
+                await Task.Delay(delay);
+            }
+            Console.WriteLine($"✅ Created {customerIds.Count} customer(s)");
+            Console.WriteLine();
+        }
+        else if (customerIds.Count == 0)
+        {
+            Console.WriteLine("⚠️  No active customers found. Use --customers 10 to create some, or create via frontend.");
             return;
         }
-        Console.WriteLine($"✅ Loaded {customerIds.Count} customer(s) from Customers API");
+        else
+        {
+            Console.WriteLine($"✅ Using {customerIds.Count} existing customer(s)");
+        }
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"⚠️  Could not load customers from {customersApi}: {ex.Message}");
+        Console.WriteLine($"⚠️  Could not load/create customers from {customersApi}: {ex.Message}");
         Console.WriteLine("    Make sure Customers.Api is running (e.g. http://localhost:5003)");
         return;
     }
@@ -362,11 +407,25 @@ rootCommand.SetHandler(async (int orders, bool simulateWorkflow, int delay, stri
     await busControl.StopAsync();
     Console.WriteLine("✅ Simulation finished!");
 
-}, ordersOption, simulateWorkflowOption, delayOption, rabbitHostOption, rabbitUserOption, rabbitPasswordOption, customersApiOption);
+}, ordersOption, customersOption, simulateWorkflowOption, delayOption, rabbitHostOption, rabbitUserOption, rabbitPasswordOption, customersApiOption);
 
 return await rootCommand.InvokeAsync(args);
 
-// ===== DTOs for API responses =====
-record OrderSummary(Guid Id, Guid CustomerId, string? CustomerReference, string Status, DateTime CreatedAt, decimal GrandTotal, int LineCount);
+// ===== DTOs for Customers API =====
+record CreateCustomerRequestDto(
+    string CompanyName,
+    string? DisplayName,
+    string Email,
+    string? Phone = null,
+    string? TaxId = null,
+    string? VatNumber = null,
+    string PreferredLanguage = "en",
+    string PreferredCurrency = "EUR",
+    string? Notes = null);
+
+record CreateCustomerResponseDto(Guid Id);
 
 record CustomerSummaryDto(Guid Id, string CompanyName, string? DisplayName, string Email, DateTime CreatedAt, bool IsActive);
+
+// ===== DTOs for Ordering API =====
+record OrderSummary(Guid Id, Guid CustomerId, string? CustomerReference, string Status, DateTime CreatedAt, decimal GrandTotal, int LineCount);
