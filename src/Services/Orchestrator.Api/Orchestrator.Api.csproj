@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Orchestrator.Api</RootNamespace>
+    <NoWarn>$(NoWarn);SKEXP0070</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Shared\Contracts\Contracts.csproj" />
+    <ProjectReference Include="..\..\Shared\Common\Common.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Semantic Kernel + Ollama (local LLM only) -->
+    <PackageReference Include="Microsoft.SemanticKernel" Version="1.36.0" />
+    <PackageReference Include="Microsoft.SemanticKernel.Connectors.Ollama" Version="1.36.1-alpha" />
+
+    <!-- MassTransit -->
+    <PackageReference Include="MassTransit" Version="8.2.5" />
+    <PackageReference Include="MassTransit.RabbitMQ" Version="8.2.5" />
+
+    <!-- HTTP resilience -->
+    <PackageReference Include="Microsoft.Extensions.Http.Polly" Version="9.0.0" />
+
+    <!-- Swagger -->
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
+
+    <!-- Health checks -->
+    <PackageReference Include="AspNetCore.HealthChecks.Rabbitmq" Version="8.0.2" />
+  </ItemGroup>
+
+</Project>

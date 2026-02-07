@@ -24,6 +24,7 @@
 | **Invoicing.Api** | 5002 | Fatturazione (placeholder) |
 | **Customers.Api** | 5003 | Clienti: CRUD (create, get, update, cancel soft-delete), REST + MassTransit, EF schema `customers` |
 | **AI.Processor** | 5010 | Elaborazione AI, RAG, embedding, chat |
+| **Orchestrator.Api** | 5020 | Semantic Kernel + Ollama: REST chat, MassTransit trigger, plugin HTTP e comandi |
 
 ### Infrastruttura (Docker)
 | Container | Porta | Uso |
@@ -106,7 +107,13 @@
 - Risponde basandosi su dati reali, non conoscenza generica
 - **MaxResults** (default 20): limite totale contesto; viene ripartito tra ordini e clienti (metà ciascuno)
 
-### 5. **Embedding vs Analisi AI**
+### 5. **Orchestrator.Api (Semantic Kernel)**
+- Nuovo servizio che usa **Semantic Kernel** con **Ollama** (solo LLM locale, nessuna chiamata a API esterne).
+- Espone REST (`POST /api/orchestrator/chat`) e consumer MassTransit per comando `RequestOrchestration` (queue `request-orchestration`).
+- **Plugin**: `ServicesApi` (chiamate HTTP a Ordering.Api e Customers.Api: ordini, stats, clienti); `MassTransitCommands` (invio comando `CreateOrder` su coda).
+- Il kernel può quindi sia leggere dati (ordini, clienti) sia inviare comandi (es. crea ordine) in base al prompt.
+
+### 6. **Embedding vs Analisi AI**
 - **Embedding** (nomic-embed-text): ~200ms, necessario per RAG
 - **Analisi AI** (llama3.2): ~40 sec, opzionale, può causare timeout
 

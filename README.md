@@ -140,7 +140,20 @@ dotnet run --project src/Services/Customers.Api
 | Invoicing API | http://localhost:5002/swagger | http://localhost:5002/api |
 | Customers API | http://localhost:5003/swagger | http://localhost:5003/api |
 | AI Processor | http://localhost:5010/swagger | http://localhost:5010/api |
+| **Orchestrator API** | http://localhost:5020/swagger | http://localhost:5020/api |
 | Angular Frontend | http://localhost:4200 | - |
+
+## Orchestrator API (Semantic Kernel)
+
+New service that uses **Semantic Kernel** with **Ollama** (local LLM only). It exposes REST APIs and a MassTransit endpoint to run orchestrations.
+
+- **URL:** http://localhost:5020/swagger
+- **REST:** `POST /api/orchestrator/chat` — send a prompt; the LLM can use plugins to call Ordering/Customers APIs (HTTP) or send MassTransit commands.
+- **MassTransit:** Send `RequestOrchestration` (contract: `Prompt`, optional `CorrelationId`) to queue `request-orchestration` to trigger an orchestration from the bus.
+- **Plugins:** `ServicesApi` (GetOrders, GetOrderStats, GetOrderById, GetCustomers via HTTP); `MassTransitCommands` (SendCreateOrder).
+- **Config:** `Ollama:Endpoint`, `Ollama:ModelId`, `OrderingApi:BaseUrl`, `CustomersApi:BaseUrl`, `RabbitMQ` (same as other services).
+
+Run: `dotnet run --project src/Services/Orchestrator.Api` (Ollama and Ordering/Customers APIs should be up).
 
 ## Ordering API
 
