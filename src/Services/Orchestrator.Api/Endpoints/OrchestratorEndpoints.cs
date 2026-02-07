@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Microsoft.SemanticKernel;
 
 namespace Orchestrator.Api.Endpoints;
@@ -10,17 +11,18 @@ public static class OrchestratorEndpoints
 
         group.MapPost("/chat", async (ChatRequest request, Kernel kernel, ILogger<Program> logger, CancellationToken cancellationToken) =>
         {
-            if (string.IsNullOrWhiteSpace(request.Prompt))
-                return Results.BadRequest(new { Message = "Prompt is required." });
+            var prompt = request?.Prompt ?? "";
+            if (string.IsNullOrWhiteSpace(prompt))
+                return Results.Ok(new ChatResponse("Prompt vuoto. Scrivi una domanda o una richiesta."));
             try
             {
-                var result = await kernel.InvokePromptAsync(request.Prompt, cancellationToken: cancellationToken);
-                var response = result.GetValue<string>() ?? string.Empty;
+                var result = await kernel.InvokePromptAsync(prompt, cancellationToken: cancellationToken);
+                var response = result?.GetValue<string>() ?? string.Empty;
                 return Results.Ok(new ChatResponse(response));
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Orchestrator chat failed for prompt: {Prompt}", request.Prompt);
+                logger.LogError(ex, "Orchestrator chat failed for prompt: {Prompt}", prompt);
                 var message = ex.Message;
                 if (ex.InnerException != null)
                     message += " " + ex.InnerException.Message;
@@ -44,6 +46,6 @@ public static class OrchestratorEndpoints
     }
 }
 
-public record ChatRequest(string Prompt);
-public record ChatResponse(string Response);
+public record ChatRequest([property: JsonPropertyName("prompt")] string Prompt);
+public record ChatResponse([property: JsonPropertyName("response")] string Response);
 public record PromptRequest(string Prompt);

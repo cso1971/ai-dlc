@@ -80,6 +80,28 @@ var app = builder.Build();
 
 app.UseSwagger().UseSwaggerUI(c => { c.SwaggerEndpoint("/swagger/v1/swagger.json", "Orchestrator API v1"); c.RoutePrefix = "swagger"; });
 app.UseCors("AllowAll");
+
+// Evita 500 sulla chat: qualsiasi eccezione non gestita per POST /api/orchestrator/chat restituisce 200 con messaggio errore
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/api/orchestrator") && context.Request.Method == "POST")
+    {
+        try
+        {
+            await next(context);
+        }
+        catch (Exception ex)
+        {
+            context.Response.StatusCode = 200;
+            context.Response.ContentType = "application/json";
+            var body = System.Text.Json.JsonSerializer.Serialize(new { response = "Errore: " + ex.Message });
+            await context.Response.WriteAsync(body);
+        }
+        return;
+    }
+    await next(context);
+});
+
 app.MapOrchestratorEndpoints();
 app.MapHealthChecks("/health");
 
