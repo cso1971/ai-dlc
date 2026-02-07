@@ -2,10 +2,23 @@ using Contracts.ValueObjects.Ordering;
 
 namespace Contracts.Commands.Ordering;
 
+/// <summary>
+/// Command to create a new order. The order references a customer in the Customers bounded context via <see cref="CustomerId"/>.
+/// </summary>
 public record CreateOrder
 {
     // Header
+
+    /// <summary>
+    /// Reference to the Customer aggregate in the Customers bounded context (same Guid as Customer.Id).
+    /// The customer must exist in the Customers context.
+    /// </summary>
     public Guid CustomerId { get; init; }
+
+    /// <summary>
+    /// Optional order reference from the customer's side (e.g. their PO number, order reference).
+    /// Not the same as the customer identity; use <see cref="CustomerId"/> for the reference to the Customer.
+    /// </summary>
     public string? CustomerReference { get; init; }
     public DateOnly? RequestedDeliveryDate { get; init; }
     public int Priority { get; init; } = 3;

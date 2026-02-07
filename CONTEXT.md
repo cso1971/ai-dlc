@@ -87,19 +87,23 @@
 - Ogni bounded context usa schema dedicato (es. `ordering.orders`)
 - Entity Framework Core con migrations
 
-### 2. **AI.Processor come servizio separato**
+### 2. **Riferimento Order → Customer (integrazione tra bounded context)**
+- L’aggregato **Order** (Ordering) riferisce il **Customer** (Customers) tramite **CustomerId** (stesso Guid di `Customer.Id`). Nessuna FK fisica tra DB; riferimento logico tra context.
+- **CustomerReference** resta un campo opzionale: riferimento ordine lato cliente (es. numero PO, loro riferimento), non l’identità del cliente.
+
+### 3. **AI.Processor come servizio separato**
 - Disaccoppia elaborazione AI dal dominio business
 - Consuma eventi da RabbitMQ (OrderCreated, CustomerCreated, ecc.)
 - Espone REST API per chat/search
 - Indicia ordini e clienti in Qdrant (collections `orders`, `customers`) per RAG
 
-### 3. **RAG implementato nel chat endpoint**
+### 4. **RAG implementato nel chat endpoint**
 - `/api/ai/chat` cerca prima in Qdrant
 - Passa i risultati come contesto a Ollama
 - Risponde basandosi su dati reali, non conoscenza generica
 - **MaxResults: 100** (default) - numero massimo di ordini usati come contesto
 
-### 4. **Embedding vs Analisi AI**
+### 5. **Embedding vs Analisi AI**
 - **Embedding** (nomic-embed-text): ~200ms, necessario per RAG
 - **Analisi AI** (llama3.2): ~40 sec, opzionale, può causare timeout
 

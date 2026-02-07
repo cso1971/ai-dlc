@@ -2,10 +2,21 @@ using Contracts.Enums;
 
 namespace Ordering.Api.Domain;
 
+/// <summary>
+/// Order aggregate root. References the Customer aggregate in the Customers bounded context via <see cref="CustomerId"/>.
+/// </summary>
 public class Order
 {
     public Guid Id { get; private set; }
+
+    /// <summary>
+    /// Reference to the Customer aggregate in the Customers bounded context (same Guid as Customer.Id).
+    /// </summary>
     public Guid CustomerId { get; private set; }
+
+    /// <summary>
+    /// Optional order reference from the customer's side (e.g. their PO number). Not the customer identity.
+    /// </summary>
     public string? CustomerReference { get; private set; }
     public DateOnly? RequestedDeliveryDate { get; private set; }
     public int Priority { get; private set; }
