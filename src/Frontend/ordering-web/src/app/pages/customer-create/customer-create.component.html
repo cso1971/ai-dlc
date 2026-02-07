@@ -1,7 +1,8 @@
 <div class="customer-create-container">
   <header class="page-header">
-    <a routerLink="/customers" class="back-link">← Back to Customers</a>
+    <a [routerLink]="returnToOrderNew ? ['/orders/new'] : ['/customers']" class="back-link">{{ returnToOrderNew ? '← Back to Order' : '← Back to Customers' }}</a>
     <h1>Create New Customer</h1>
+    <p *ngIf="returnToOrderNew" class="return-hint">After saving, you'll be returned to the order form with this customer selected.</p>
   </header>
 
   <div *ngIf="error" class="error-message">

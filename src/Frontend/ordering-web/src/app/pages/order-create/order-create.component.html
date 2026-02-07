@@ -15,10 +15,13 @@
       <div class="form-grid">
         <div class="form-group">
           <label>Customer *</label>
-          <select *ngIf="!customersLoading && !customersError" [(ngModel)]="order.customerId" name="customerId" required>
-            <option value="">-- Select customer --</option>
-            <option *ngFor="let c of customers" [value]="c.id">{{ customerDisplayName(c) }} ({{ c.companyName }})</option>
-          </select>
+          <div class="customer-select-row">
+            <select *ngIf="!customersLoading && !customersError" [(ngModel)]="order.customerId" name="customerId" required>
+              <option value="">-- Select customer --</option>
+              <option *ngFor="let c of customers" [value]="c.id">{{ customerDisplayName(c) }} ({{ c.companyName }})</option>
+            </select>
+            <a routerLink="/customers/new" [queryParams]="{returnTo: 'orderNew'}" class="link-add-customer" tabindex="0">+ Add new customer</a>
+          </div>
           <p *ngIf="customersLoading" class="loading-hint">Loading customers...</p>
           <p *ngIf="customersError" class="error-hint">{{ customersError }}</p>
         </div>

@@ -1,7 +1,7 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterModule } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { CustomerService } from '../../services/customer.service';
 import { CreateCustomerRequest, PostalAddressDto } from '../../models/customer.models';
 
@@ -15,6 +15,7 @@ import { CreateCustomerRequest, PostalAddressDto } from '../../models/customer.m
 export class CustomerCreateComponent {
   saving = false;
   error: string | null = null;
+  returnToOrderNew = false;
 
   customer: CreateCustomerRequest = {
     companyName: '',
@@ -57,8 +58,11 @@ export class CustomerCreateComponent {
 
   constructor(
     private customerService: CustomerService,
-    private router: Router
-  ) {}
+    private router: Router,
+    private route: ActivatedRoute
+  ) {
+    this.returnToOrderNew = this.route.snapshot.queryParamMap.get('returnTo') === 'orderNew';
+  }
 
   submit(): void {
     if (!this.customer.companyName?.trim() || !this.customer.email?.trim()) {
@@ -77,7 +81,11 @@ export class CustomerCreateComponent {
 
     this.customerService.createCustomer(request).subscribe({
       next: (created) => {
-        this.router.navigate(['/customers', created.id]);
+        if (this.returnToOrderNew) {
+          this.router.navigate(['/orders/new'], { queryParams: { customerId: created.id } });
+        } else {
+          this.router.navigate(['/customers', created.id]);
+        }
       },
       error: (err) => {
         this.error = 'Failed to create customer: ' + (err.error?.message || err.message || 'Unknown error');

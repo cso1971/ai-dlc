@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterModule } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { OrderService } from '../../services/order.service';
 import { CustomerService } from '../../services/customer.service';
 import { CreateOrderRequest, CreateOrderLineRequest, ShippingAddress } from '../../models/order.models';
@@ -59,15 +59,20 @@ export class OrderCreateComponent implements OnInit {
   constructor(
     private orderService: OrderService,
     private customerService: CustomerService,
-    private router: Router
+    private router: Router,
+    private route: ActivatedRoute
   ) {}
 
   ngOnInit(): void {
+    const preselectedId = this.route.snapshot.queryParamMap.get('customerId');
     this.customerService.getCustomers().subscribe({
       next: (list) => {
         this.customers = list.filter(c => c.isActive);
         this.customersLoading = false;
-        if (this.customers.length > 0 && !this.order.customerId) {
+        if (preselectedId && this.customers.some(c => c.id === preselectedId)) {
+          this.order.customerId = preselectedId;
+          this.router.navigate([], { relativeTo: this.route, queryParams: { customerId: null }, queryParamsHandling: 'merge' });
+        } else if (this.customers.length > 0 && !this.order.customerId) {
           this.order.customerId = this.customers[0].id;
         }
       },
