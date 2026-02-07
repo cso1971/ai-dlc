@@ -28,6 +28,7 @@
       <thead>
         <tr>
           <th>Order ID</th>
+          <th>Customer</th>
           <th>Customer Ref</th>
           <th>Status</th>
           <th>Lines</th>
@@ -39,6 +40,7 @@
       <tbody>
         <tr *ngFor="let order of orders" [routerLink]="['/orders', order.id]" class="clickable-row">
           <td class="order-id">{{ order.id.substring(0, 8) }}...</td>
+          <td>{{ getCustomerDisplayName(order.customerId) }}</td>
           <td>{{ order.customerReference || '-' }}</td>
           <td>
             <span class="status-badge" [style.background-color]="getStatusColor(order.status)">

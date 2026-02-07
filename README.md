@@ -488,7 +488,7 @@ Angular 17 SPA for managing orders and customers.
 
 | Page | Route | Description |
 |------|-------|-------------|
-| Order List | `/orders` | List all orders with summary |
+| Order List | `/orders` | List orders with customer display name, customer ref, status, total, actions |
 | Order Detail | `/orders/:id` | View order details and execute workflow actions; customer shown by display name with link to customer page |
 | Create Order | `/orders/new` | Create a new order with lines |
 | Customer List | `/customers` | List all customers (Active / Cancelled) |

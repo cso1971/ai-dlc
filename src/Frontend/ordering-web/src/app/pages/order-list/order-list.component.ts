@@ -2,7 +2,9 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { OrderService } from '../../services/order.service';
+import { CustomerService } from '../../services/customer.service';
 import { OrderSummary, OrderStatus, getStatusLabel, getStatusColor } from '../../models/order.models';
+import { CustomerSummary } from '../../models/customer.models';
 
 @Component({
   selector: 'app-order-list',
@@ -13,13 +15,27 @@ import { OrderSummary, OrderStatus, getStatusLabel, getStatusColor } from '../..
 })
 export class OrderListComponent implements OnInit {
   orders: OrderSummary[] = [];
+  customers: CustomerSummary[] = [];
   loading = false;
   error: string | null = null;
 
-  constructor(private orderService: OrderService) {}
+  constructor(
+    private orderService: OrderService,
+    private customerService: CustomerService
+  ) {}
 
   ngOnInit(): void {
+    this.loadCustomers();
     this.loadOrders();
+  }
+
+  loadCustomers(): void {
+    this.customerService.getCustomers().subscribe({
+      next: (list) => {
+        this.customers = list.filter(c => c.isActive);
+      },
+      error: () => { this.customers = []; }
+    });
   }
 
   loadOrders(): void {
@@ -35,6 +51,11 @@ export class OrderListComponent implements OnInit {
         this.loading = false;
       }
     });
+  }
+
+  getCustomerDisplayName(customerId: string): string {
+    const c = this.customers.find(x => x.id === customerId);
+    return c ? (c.displayName || c.companyName) : customerId.substring(0, 8) + '…';
   }
 
   getStatusLabel(status: OrderStatus): string {
