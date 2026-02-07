@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 
 export interface ChatRequest {
@@ -73,11 +74,24 @@ export interface HealthStatus {
 })
 export class AiService {
   private apiUrl = environment.aiApiUrl;
+  private orchestratorApiUrl = environment.orchestratorApiUrl;
 
   constructor(private http: HttpClient) {}
 
+  /** Chat with RAG backend (AI.Processor – Qdrant + Ollama). */
   chat(request: ChatRequest): Observable<ChatResponse> {
     return this.http.post<ChatResponse>(`${this.apiUrl}/api/ai/chat`, request);
+  }
+
+  /** Chat with Semantic Kernel backend (Orchestrator.Api – plugins, Ollama only). */
+  chatWithOrchestrator(request: ChatRequest): Observable<ChatResponse> {
+    return this.http.post<{ response: string }>(`${this.orchestratorApiUrl}/api/orchestrator/chat`, { prompt: request.prompt }).pipe(
+      map((res) => ({ response: res.response, model: 'Semantic Kernel', duration: '' }))
+    );
+  }
+
+  checkOrchestratorHealth(): Observable<{ status: string }> {
+    return this.http.get<{ status: string }>(`${this.orchestratorApiUrl}/health`);
   }
 
   analyze(request: AnalyzeRequest): Observable<AnalyzeResponse> {

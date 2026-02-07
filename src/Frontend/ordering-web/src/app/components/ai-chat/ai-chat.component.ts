@@ -12,6 +12,7 @@ interface Message {
 }
 
 type ChatMode = 'chat' | 'search' | 'analyze';
+type ChatBackend = 'rag' | 'semantic-kernel';
 
 @Component({
   selector: 'app-ai-chat',
@@ -26,6 +27,8 @@ export class AiChatComponent implements OnInit {
   messages: Message[] = [];
   userInput = '';
   mode: ChatMode = 'chat';
+  /** Which backend to use for chat: RAG (AI.Processor) or Semantic Kernel (Orchestrator.Api). Search/Analyze always use RAG. */
+  chatBackend: ChatBackend = 'rag';
   modelInfo: ModelInfo | null = null;
   isConnected = false;
   connectionError = '';
@@ -61,6 +64,13 @@ export class AiChatComponent implements OnInit {
     this.mode = newMode;
   }
 
+  setChatBackend(backend: ChatBackend): void {
+    this.chatBackend = backend;
+    if (backend === 'semantic-kernel') {
+      this.mode = 'chat'; // only chat is available for SK
+    }
+  }
+
   sendMessage(): void {
     if (!this.userInput.trim() || this.isLoading) return;
 
@@ -91,15 +101,20 @@ export class AiChatComponent implements OnInit {
   }
 
   private sendChatMessage(prompt: string): void {
-    this.aiService.chat({ 
+    const request = {
       prompt,
       systemPrompt: 'You are a helpful assistant for an order management system. Help users understand orders, provide insights, and answer questions.'
-    }).subscribe({
+    };
+    const obs = this.chatBackend === 'semantic-kernel'
+      ? this.aiService.chatWithOrchestrator(request)
+      : this.aiService.chat(request);
+    obs.subscribe({
       next: (response) => {
         this.addAssistantMessage(response.response, response.duration);
       },
       error: (err) => {
-        this.addErrorMessage('Failed to get response: ' + (err.error?.message || err.message));
+        const backend = this.chatBackend === 'semantic-kernel' ? 'Orchestrator (Semantic Kernel)' : 'AI.Processor (RAG)';
+        this.addErrorMessage(`Failed to get response from ${backend}: ` + (err.error?.message || err.message));
       }
     });
   }

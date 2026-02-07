@@ -28,12 +28,34 @@
   </div>
 
   <!-- Model info -->
-  <div class="model-info" *ngIf="isConnected && modelInfo">
+  <div class="model-info" *ngIf="isConnected && modelInfo && chatBackend === 'rag'">
     <span class="model-badge">{{ modelInfo.chatModel }}</span>
     <span class="model-badge secondary">{{ modelInfo.embeddingModel }}</span>
   </div>
+  <div class="model-info" *ngIf="chatBackend === 'semantic-kernel'">
+    <span class="model-badge">Semantic Kernel (Ollama)</span>
+  </div>
 
-  <!-- Mode selector -->
+  <!-- Backend selector (for chat: RAG vs Semantic Kernel) -->
+  <div class="backend-selector">
+    <span class="backend-label">Chat with:</span>
+    <button 
+      class="backend-btn" 
+      [class.active]="chatBackend === 'rag'" 
+      (click)="setChatBackend('rag')"
+      title="RAG: AI.Processor with Qdrant + Ollama">
+      RAG
+    </button>
+    <button 
+      class="backend-btn" 
+      [class.active]="chatBackend === 'semantic-kernel'" 
+      (click)="setChatBackend('semantic-kernel')"
+      title="Semantic Kernel: Orchestrator with plugins (HTTP + MassTransit)">
+      Semantic Kernel
+    </button>
+  </div>
+
+  <!-- Mode selector (Search/Analyze only with RAG) -->
   <div class="mode-selector">
     <button 
       class="mode-btn" 
@@ -44,13 +66,17 @@
     <button 
       class="mode-btn" 
       [class.active]="mode === 'search'" 
-      (click)="setMode('search')">
+      [disabled]="chatBackend === 'semantic-kernel'"
+      (click)="setMode('search')"
+      title="Search only with RAG backend">
       🔍 Search Orders
     </button>
     <button 
       class="mode-btn" 
       [class.active]="mode === 'analyze'" 
-      (click)="setMode('analyze')">
+      [disabled]="chatBackend === 'semantic-kernel'"
+      (click)="setMode('analyze')"
+      title="Analyze only with RAG backend">
       📊 Analyze
     </button>
   </div>

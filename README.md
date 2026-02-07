@@ -527,22 +527,22 @@ npm start
 - **Customers:** List, create, detail with edit (partial update) and cancel (soft delete with reason)
 - Modal dialogs for actions requiring input (e.g. cancel reason)
 - **AI Chat Assistant** - Always visible floating panel with:
-  - 💬 Chat mode: Ask questions about orders
-  - 🔍 Search mode: Semantic search over orders in Qdrant
-  - 📊 Analyze mode: AI analysis of text
+  - **Chat with:** RAG (AI.Processor) or Semantic Kernel (Orchestrator.Api) — switch in the panel
+  - 💬 Chat mode: Ask questions (uses selected backend)
+  - 🔍 Search mode: Semantic search over orders in Qdrant (RAG only)
+  - 📊 Analyze mode: AI analysis of text (RAG only)
 - Responsive design
 
 ### AI Chat Assistant
 
 - **RabbitMQ queue stats**: In the navbar, a small widget shows total messages across all RabbitMQ queues and a sparkline of recent values (polling Ordering API `GET /api/metrics/rabbitmq` every 5s).
 
-The AI Chat panel is always visible in the bottom-right corner. It connects to AI.Processor and provides:
+The AI Chat panel is always visible in the bottom-right corner. You can choose the chat backend:
 
-- **Chat**: Ask questions, get AI-powered answers
-- **Search Orders**: Find similar orders using semantic search
-- **Analyze**: Send text for AI analysis
+- **RAG** (default): Connects to AI.Processor (Qdrant + Ollama). Chat, Search Orders, and Analyze are all available.
+- **Semantic Kernel**: Connects to Orchestrator.Api (Ollama + plugins). Only Chat is available; Search and Analyze are disabled in this mode.
 
-Click the 🤖 button to open/close the panel.
+Click the 🤖 button to open/close the panel. Use "Chat with: RAG" or "Chat with: Semantic Kernel" to switch backends.
 
 ## Technology Stack
 

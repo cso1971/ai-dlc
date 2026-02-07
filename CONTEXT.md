@@ -38,7 +38,7 @@
 ### Frontend
 - **Angular 17** su porta 4200
 - Pagine: lista ordini, dettaglio, creazione, workflow actions
-- **AI Chat Assistant**: sempre visibile, usa RAG per rispondere
+- **AI Chat Assistant**: sempre visibile; selettore "Chat with: RAG | Semantic Kernel" per usare AI.Processor (RAG) o Orchestrator.Api (Semantic Kernel). Search e Analyze solo con RAG.
 
 ---
 
