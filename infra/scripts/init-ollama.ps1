@@ -98,5 +98,5 @@ if ($Mode -eq "native") {
 
 if ($Mode -eq "native") {
     Write-Host ""
-    Write-Host "Using native Ollama with Metal GPU acceleration" -ForegroundColor Green
+    Write-Host "Using native Ollama with GPU acceleration" -ForegroundColor Green
 }
