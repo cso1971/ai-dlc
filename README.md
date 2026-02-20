@@ -52,26 +52,42 @@ A .NET distributed system playground for AI exploration with multiple bounded co
 # Navigate to infra folder
 cd infra
 
-# Start only infrastructure (recommended for local development)
+# Start infrastructure WITHOUT Docker Ollama (recommended on Apple Silicon — use native Ollama for Metal GPU)
 docker-compose --profile infra up -d
+
+# Start infrastructure WITH Docker Ollama (CPU only, simpler setup)
+docker-compose --profile infra --profile ollama up -d
 
 # Or start everything including .NET services in containers
 docker-compose --profile full up -d
 ```
 
-**Con GPU NVIDIA (Ollama usa la scheda video):** richiede [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html). Usa l’override:
+**Apple Silicon (M1/M2/M3/M4):** Run Ollama **natively** for Metal GPU acceleration (3-5x faster inference). Install with `brew install ollama` then `ollama serve`. Do NOT use `--profile ollama` — the Docker Ollama runs CPU-only.
+
+**NVIDIA GPU:** Requires [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html). Use the override:
 
 ```powershell
-docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile infra up -d
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile infra --profile ollama up -d
 ```
-
-Chi non ha GPU NVIDIA usi solo il comando standard sopra (senza `-f docker-compose.gpu.yml`).
 
 ### 2. Initialize Ollama Models
 
 ```powershell
-# Run the initialization script
+# Auto-detect: uses native Ollama if running, otherwise Docker Ollama
 .\infra\scripts\init-ollama.ps1
+
+# Force native Ollama
+.\infra\scripts\init-ollama.ps1 -Mode native
+
+# Force Docker Ollama
+.\infra\scripts\init-ollama.ps1 -Mode docker
+```
+
+```bash
+# Bash equivalents
+./infra/scripts/init-ollama.sh            # auto-detect
+./infra/scripts/init-ollama.sh --native   # force native
+./infra/scripts/init-ollama.sh --docker   # force Docker
 ```
 
 ### 3. Create Ordering database schema
@@ -636,10 +652,15 @@ Click the 🤖 button to open/close the panel. Use "Chat with: RAG" or "Chat wit
 
 ```powershell
 cd infra
+
+# Without Docker Ollama
 docker-compose --profile infra down
 
-# Se avevi avviato con GPU: usa gli stessi file
-# docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile infra down
+# With Docker Ollama
+docker-compose --profile infra --profile ollama down
+
+# With GPU override
+# docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile infra --profile ollama down
 
 # To also remove volumes (data)
 docker-compose --profile infra down -v

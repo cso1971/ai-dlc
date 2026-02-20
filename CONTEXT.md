@@ -32,7 +32,7 @@
 | PostgreSQL | 5432 | Database (schema `ordering`) |
 | RabbitMQ | 5672/15672 | Message broker |
 | Qdrant | 6333/6334 | Vector database per RAG |
-| Ollama | 11434 | LLM locale (llama3.2 + nomic-embed-text) |
+| Ollama | 11434 | LLM locale (llama3.2 + nomic-embed-text) — **opzionale in Docker**: su Apple Silicon usare Ollama nativo per Metal GPU (3-5x più veloce) |
 | Jaeger | 16686/4317 | Distributed tracing |
 
 ### Frontend
@@ -145,6 +145,10 @@
 **Causa**: Analisi AI sincrona per ogni ordine (~40 sec ciascuna).
 **Mitigazione**: Timeout esteso, ma potrebbe servire rimuovere analisi AI o usare modello più leggero.
 
+### Ollama in Docker non usa Metal GPU (Apple Silicon)
+**Problema**: Docker Desktop su macOS esegue i container in una VM Linux; non c'è passthrough Metal GPU → Ollama in Docker usa solo CPU.
+**Soluzione**: Ollama è ora **opzionale** in Docker (profile `ollama` separato da `infra`). Su Apple Silicon usare Ollama nativo (`brew install ollama && ollama serve`) per Metal GPU acceleration (3-5x più veloce). Lo script `init-ollama.sh`/`.ps1` auto-detecta se usare nativo o Docker.
+
 ### Cannot resolve MassTransitCommandsPlugin (ISendEndpointProvider scoped)
 **Problema**: `Cannot resolve 'Orchestrator.Api.Plugins.MassTransitCommandsPlugin' from root provider because it requires scoped service 'MassTransit.ISendEndpointProvider'.`
 **Causa**: Il Kernel è registrato come singleton e alla costruzione risolve i plugin dal root provider; `ISendEndpointProvider` in MassTransit è scoped, quindi non risolvibile dal root.
@@ -208,11 +212,14 @@ dotnet run --project src/Tools/OrderSimulator -- -n 50 -w false
 git clone <repo-url>
 cd DistributedPlayground
 
-# 2. Avvia infrastruttura Docker
-cd infra && docker-compose up -d
+# 2. Avvia infrastruttura Docker (senza Ollama Docker su Apple Silicon)
+cd infra && docker-compose --profile infra up -d
+# oppure con Ollama Docker (CPU only): docker-compose --profile infra --profile ollama up -d
 
-# 3. Inizializza modelli Ollama
-./infra/scripts/init-ollama.ps1  # o .sh
+# 3. Inizializza modelli Ollama (auto-detect nativo vs Docker)
+./infra/scripts/init-ollama.sh          # o .ps1
+# Su Apple Silicon: installa Ollama nativo (brew install ollama && ollama serve)
+# poi: ./infra/scripts/init-ollama.sh   # userà il nativo con Metal GPU
 
 # 4. Crea schema DB Ordering (schema ordering + tabelle)
 # Da root repo, con Docker avviato:
