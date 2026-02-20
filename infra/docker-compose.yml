@@ -90,7 +90,7 @@ services:
       - playground-network
 
   keycloak:
-    image: quay.io/keycloak/keycloak:24
+    image: quay.io/keycloak/keycloak:latest
     container_name: playground-keycloak
     profiles: ["infra", "full"]
     environment:
