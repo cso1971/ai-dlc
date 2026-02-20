@@ -41,85 +41,35 @@ A .NET distributed system playground for AI exploration with multiple bounded co
 
 ## Prerequisites
 
-- [mise](https://mise.jdx.dev/) — run `mise install` to get .NET 9, Ollama, and PowerShell
+- [mise](https://mise.jdx.dev/) — run `mise install` to get .NET 9, Ollama, PowerShell, and just
 - [Docker Desktop](https://www.docker.com/products/docker-desktop)
 
 ## Quick Start
 
-### 1. Start Infrastructure
+All commands are in the `justfile`. Run `just` to see the full list.
 
 ```powershell
-# Navigate to infra folder
-cd infra
-
-# Start infrastructure WITHOUT Docker Ollama (recommended on Apple Silicon — use native Ollama for Metal GPU)
-docker-compose --profile infra up -d
-
-# Start infrastructure WITH Docker Ollama (CPU only, simpler setup)
-docker-compose --profile infra --profile ollama up -d
-
-# Or start everything including .NET services in containers
-docker-compose --profile full up -d
+just setup              # Install tools via mise
+just infra-up           # Start Docker infra (without Docker Ollama)
+just ollama-serve       # Start native Ollama (Apple Silicon Metal GPU) — separate terminal
+just ollama-init        # Pull models (llama3.2 + nomic-embed-text)
+just db-all             # Create all DB schemas (ordering + customers)
+just run-ordering       # Start Ordering API (:5001) — separate terminal
+just run-customers      # Start Customers API (:5003) — separate terminal
+just run-ai             # Start AI Processor (:5010) — separate terminal
+just run-orchestrator   # Start Orchestrator API (:5020) — separate terminal
+just frontend-install   # Install Angular dependencies
+just frontend           # Start Angular frontend (:4200)
+just simulate           # Generate test data (10 customers + 10 orders + workflow)
 ```
 
-**Apple Silicon (M1/M2/M3/M4):** Run Ollama **natively** for Metal GPU acceleration (3-5x faster inference). Install with `mise install` (includes Ollama) then `ollama serve`. Do NOT use `--profile ollama` — the Docker Ollama runs CPU-only.
+**Apple Silicon (M1/M2/M3/M4):** Use `just infra-up` (without Docker Ollama) + `just ollama-serve` for Metal GPU acceleration (3-5x faster). Do NOT use `just infra-up-ollama` — Docker Ollama runs CPU-only.
 
-**NVIDIA GPU:** Requires [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html). Use the override:
+**Docker Ollama (CPU):** `just infra-up-ollama` starts infra with Ollama in Docker.
 
-```powershell
-docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile infra --profile ollama up -d
-```
+**Wipe all data:** `just db-wipe` deletes all rows in PostgreSQL and removes Qdrant collections.
 
-### 2. Initialize Ollama Models
-
-```powershell
-# Auto-detect: uses native Ollama if running, otherwise Docker Ollama
-pwsh infra/scripts/init-ollama.ps1
-
-# Force native Ollama
-pwsh infra/scripts/init-ollama.ps1 -Mode native
-
-# Force Docker Ollama
-pwsh infra/scripts/init-ollama.ps1 -Mode docker
-```
-
-### 3. Create Ordering database schema
-
-Create the `ordering` schema and tables in PostgreSQL (required for Ordering API). Run from the repo root with infrastructure up:
-
-```powershell
-Get-Content infra/scripts/create-ordering-schema.sql | docker exec -i playground-postgres psql -U playground -d playground_db
-```
-
-Alternatively, if you have the EF Core tools and migrations are discovered correctly: `dotnet ef database update --project src/Services/Ordering.Api`.
-
-**Customers API (schema `customers`):**  
-`dotnet ef database update --project src/Services/Customers.Api`
-
-**Wipe all data (orders, customers, Qdrant):**  
-With infrastructure running, from repo root:
-
-```powershell
-pwsh infra/scripts/wipe-data.ps1
-```
-
-This deletes all rows in `ordering.order_lines`, `ordering.orders`, and `customers.customers`, and removes Qdrant collections `orders` and `customers`. AI.Processor will recreate the collections when new events arrive.
-
-### 4. Run .NET Services Locally (Development)
-
-```powershell
-# Terminal 1 - Ordering API
-dotnet run --project src/Services/Ordering.Api
-
-# Terminal 2 - AI Processor (Event Consumer)
-dotnet run --project src/Services/AI.Processor
-
-# Terminal 3 - Invoicing API  
-dotnet run --project src/Services/Invoicing.Api
-
-# Terminal 4 - Customers API
-dotnet run --project src/Services/Customers.Api
-```
+**Stop infra:** `just infra-down` or `just infra-down-volumes` (removes data).
 
 ## Infrastructure URLs
 
@@ -152,7 +102,7 @@ New service that uses **Semantic Kernel** with **Ollama** (local LLM only). It e
 - **Plugins:** `ServicesApi` (GetOrders, GetOrderStats, GetOrderById, GetCustomers via HTTP); `MassTransitCommands` (SendCreateOrder).
 - **Config:** `Ollama:Endpoint`, `Ollama:ModelId`, `OrderingApi:BaseUrl`, `CustomersApi:BaseUrl`, `RabbitMQ` (same as other services).
 
-Run: `dotnet run --project src/Services/Orchestrator.Api` (Ollama and Ordering/Customers APIs should be up).
+Run: `just run-orchestrator` (Ollama and Ordering/Customers APIs should be up).
 
 ## Ordering API
 
@@ -273,7 +223,7 @@ REST `POST /api/customers` calls `CustomerService` and persists to PostgreSQL (s
 
 - Schema: `customers`
 - Table: `customers` (Id, CompanyName, DisplayName, Email, … PreferredLanguage, PreferredCurrency, Notes, CreatedAt, UpdatedAt, CancelledAt, CancellationReason)
-- Apply migrations: `dotnet ef database update --project src/Services/Customers.Api`
+- Apply migrations: `just db-customers`
 
 ### CreateCustomer payload (DDD-style)
 
@@ -488,6 +438,8 @@ DistributedPlayground/
 │   └── scripts/
 │       ├── init-ollama.ps1
 │       └── wipe-data.ps1
+├── justfile                 # All project commands (run `just` to list)
+├── mise.toml                # Tool versions (dotnet, ollama, pwsh, just)
 └── DistributedPlayground.sln
 ```
 
@@ -510,20 +462,14 @@ Angular 17 SPA for managing orders and customers.
 
 ### Running the Frontend
 
-**Prerequisites:** Node.js and npm must be installed and in your PATH.
-
 ```powershell
-cd src/Frontend/ordering-web
-npm install
-npm start
+just frontend-install   # npm install (first time)
+just frontend           # npm start
 ```
 
 **URL:** http://localhost:4200 (or http://127.0.0.1:4200 — CORS allows both)
 
-**If the UI doesn’t start or load:**
-- Ensure **Node.js** is installed and `node` / `npm` are available in the terminal (e.g. `node -v`, `npm -v`).
-- Run the commands above from the project root or from `src/Frontend/ordering-web`.
-- For the app to work fully, the **backends** must be running: Ordering.Api (5001), Customers.Api (5003), and optionally AI.Processor (5010), Orchestrator.Api (5020). Otherwise lists will be empty or the AI panel will show connection errors.
+For the app to work fully, the **backends** must be running: Ordering.Api (5001), Customers.Api (5003), and optionally AI.Processor (5010), Orchestrator.Api (5020). Otherwise lists will be empty or the AI panel will show connection errors.
 
 ### Features
 
@@ -632,19 +578,9 @@ Click the 🤖 button to open/close the panel. Use "Chat with: RAG" or "Chat wit
 ## Stopping Infrastructure
 
 ```powershell
-cd infra
-
-# Without Docker Ollama
-docker-compose --profile infra down
-
-# With Docker Ollama
-docker-compose --profile infra --profile ollama down
-
-# With GPU override
-# docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile infra --profile ollama down
-
-# To also remove volumes (data)
-docker-compose --profile infra down -v
+just infra-down           # Stop infra (without Docker Ollama)
+just infra-down-ollama    # Stop infra + Docker Ollama
+just infra-down-volumes   # Stop and remove all volumes (data loss!)
 ```
 
 ## Order Simulator Tool
@@ -654,17 +590,10 @@ Console application to **create test customers** (via MassTransit) and **generat
 ### Usage
 
 ```powershell
-# Generate 10 orders with workflow simulation (default); creates 10 customers first if none exist
-dotnet run --project src/Tools/OrderSimulator
-
-# Create 15 customers (if none), then 50 orders, no workflow
-dotnet run --project src/Tools/OrderSimulator -- -c 15 -n 50 -w false
-
-# Generate 20 orders with 1 second delay between commands
-dotnet run --project src/Tools/OrderSimulator -- -n 20 -d 1000
-
-# Show help
-dotnet run --project src/Tools/OrderSimulator -- --help
+just simulate                   # Default: 10 customers + 10 orders + workflow
+just simulate-quick 50          # 50 orders, no workflow
+just simulate-custom c=15 n=50  # 15 customers, 50 orders, no workflow
+just simulate-help              # Show all options
 ```
 
 ### Options
