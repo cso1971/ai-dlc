@@ -1,5 +1,5 @@
 # Initialize Ollama with required models.
-# Supports both native (Apple Silicon Metal) and Docker Ollama.
+# Supports both native (GPU-accelerated) and Docker Ollama.
 #
 # Usage:
 #   .\init-ollama.ps1          # auto-detect: prefer native, fallback to Docker
