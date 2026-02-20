@@ -51,7 +51,7 @@ All commands are in the `justfile`. Run `just` to see the full list.
 ```powershell
 just setup              # Install tools via mise
 just infra-up           # Start Docker infra (without Docker Ollama)
-just ollama-serve       # Start native Ollama (Apple Silicon Metal GPU) — separate terminal
+just ollama-serve       # Start native Ollama (GPU acceleration) — separate terminal
 just ollama-init        # Pull models (llama3.2 + nomic-embed-text)
 just db-all             # Create all DB schemas (ordering + customers)
 just run                # Start all services in parallel
