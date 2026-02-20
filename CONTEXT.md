@@ -259,6 +259,9 @@ just simulate           # 9. Genera ordini di test
 
 ```
 DistributedPlayground/
+├── .github/
+│   └── workflows/
+│       └── build.yml          ← CI: build on PR
 ├── infra/
 │   ├── docker-compose.yml
 │   ├── dockerfiles/
