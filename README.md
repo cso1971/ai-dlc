@@ -5,30 +5,22 @@ A .NET distributed system playground for AI exploration with multiple bounded co
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              INFRASTRUCTURE                                  │
-├───────────────┬───────────────┬───────────────┬───────────────┬─────────────┤
-│   PostgreSQL  │   RabbitMQ    │    Qdrant     │    Ollama     │   Jaeger    │
-│   :5432       │ :5672/:15672  │  :6333/:6334  │    :11434     │   :16686    │
-└───────────────┴───────────────┴───────────────┴───────────────┴─────────────┘
-         │              │               │               │
-         │    ┌─────────┼───────────────┼───────────────┬───────────────┐
-         │    │         │               │               │               │
-┌────────▼────▼────┐    │     ┌─────────▼─────────┐     ┌─▼────────────────┐
-│   Ordering API   │────┼────▶│   AI.Processor    │     │ Orchestrator API  │
-│      :5001       │    │     │   (Worker)        │     │     :5020         │
-└────────┬─────────┘    │     │   Ollama + Qdrant │     │ Semantic Kernel  │
-         ▲              │     └───────────────────┘     │ Ollama + plugins  │
-         │              │               ▲               └────────┬────────┘
-┌────────┴────────┐     │               │ (Events)               │ HTTP
-│  Invoicing API  │─────┤               │                        ▼
-│     :5002       │     │               │               (Ordering, Customers)
-└─────────────────┘     │               │
-         │              │               │
-┌────────▼────────┐     │               │
-│  Customers API  │─────┘───────────────┘
-│     :5003       │
-└─────────────────┘
+                    ┌─────────────────────────────────────┐
+                    │         Gateway (YARP) :5000          │
+                    │   Single entry for all REST APIs     │
+                    └─────────────────────┬───────────────┘
+                                          │
+┌─────────────────────────────────────────┼─────────────────────────────────────┐
+│                    INFRASTRUCTURE        │                                      │
+├───────────────┬─────────────┬───────────┼───────────┬─────────────┬────────────┤
+│   PostgreSQL  │  RabbitMQ   │  Qdrant   │  Ollama   │   Jaeger    │             │
+│   :5432       │ :5672/15672 │ :6333/6334│  :11434   │   :16686    │             │
+└───────────────┴─────────────┴───────────┴───────────┴─────────────┴────────────┘
+         │              │              │         │
+┌────────▼────┐  ┌──────▼──────┐  ┌────▼─────┐  │     ┌──────────────────────────┐
+│ Ordering API│  │ Invoicing API│  │Customers │  │     │ AI.Processor  Orchestrator│
+│   :5001     │  │   :5002     │  │  :5003   │  └────▶│   :5010         :5020     │
+└─────────────┘  └─────────────┘  └──────────┘        └──────────────────────────┘
 ```
 
 ## Bounded Contexts
@@ -108,18 +100,26 @@ This deletes all rows in `ordering.order_lines`, `ordering.orders`, and `custome
 
 ### 4. Run .NET Services Locally (Development)
 
+You can run the **Gateway** first so the frontend uses a single base URL (`http://localhost:5000`), or call each API directly.
+
 ```powershell
-# Terminal 1 - Ordering API
+# Terminal 1 - Gateway (YARP reverse proxy, optional single entry point)
+dotnet run --project src/Services/Gateway
+
+# Terminal 2 - Ordering API
 dotnet run --project src/Services/Ordering.Api
 
-# Terminal 2 - AI Processor (Event Consumer)
+# Terminal 3 - AI Processor (Event Consumer)
 dotnet run --project src/Services/AI.Processor
 
-# Terminal 3 - Invoicing API  
+# Terminal 4 - Invoicing API  
 dotnet run --project src/Services/Invoicing.Api
 
-# Terminal 4 - Customers API
+# Terminal 5 - Customers API
 dotnet run --project src/Services/Customers.Api
+
+# Terminal 6 - Orchestrator API (Semantic Kernel)
+dotnet run --project src/Services/Orchestrator.Api
 ```
 
 ## Infrastructure URLs
@@ -136,12 +136,24 @@ dotnet run --project src/Services/Customers.Api
 
 | Service | Swagger | API Base |
 |---------|---------|----------|
+| **Gateway (YARP)** | - | http://localhost:5000 (proxies to all APIs below) |
 | Ordering API | http://localhost:5001/swagger | http://localhost:5001/api |
 | Invoicing API | http://localhost:5002/swagger | http://localhost:5002/api |
 | Customers API | http://localhost:5003/swagger | http://localhost:5003/api |
 | AI Processor | http://localhost:5010/swagger | http://localhost:5010/api |
 | **Orchestrator API** | http://localhost:5020/swagger | http://localhost:5020/api |
 | Angular Frontend | http://localhost:4200 | - |
+
+When using the Gateway, use **http://localhost:5000** as the API base: e.g. `GET http://localhost:5000/api/orders`, `GET http://localhost:5000/api/customers`, `POST http://localhost:5000/api/orchestrator/chat`, `POST http://localhost:5000/api/ai/chat`.
+
+## Gateway (YARP)
+
+The **Gateway** is a .NET reverse proxy (YARP) that exposes a single entry point for all domain APIs. Use it to simplify the frontend (one base URL) and to prepare for centralised auth (e.g. Keycloak) later.
+
+- **URL:** http://localhost:5000
+- **Routes:** `/api/orders`, `/api/metrics` → Ordering.Api; `/api/customers` → Customers.Api; `/api/invoices` → Invoicing.Api; `/api/orchestrator` → Orchestrator.Api; `/api/ai` → AI.Processor
+- **Run:** `dotnet run --project src/Services/Gateway`
+- **Docker:** Included in `docker-compose --profile full` as `gateway` (port 5000). Backend addresses are set via `appsettings.Docker.json` (container names for ordering/customers/invoicing; `host.docker.internal` for orchestrator/ai when run locally).
 
 ## Orchestrator API (Semantic Kernel)
 

@@ -1,7 +1,7 @@
 # 🧠 CONTEXT.md - Session Summary
 
 > Questo file contiene il contesto e la cronologia delle decisioni prese durante lo sviluppo del progetto.
-> Ultimo aggiornamento: 2026-02-07
+> Ultimo aggiornamento: 2026-02-10
 
 ---
 
@@ -20,6 +20,7 @@
 ### Bounded Contexts
 | Servizio | Porta | Descrizione |
 |----------|-------|-------------|
+| **Gateway** | 5000 | API Gateway (YARP) per Ordering, Customers, Invoicing, Orchestrator, AI.Processor; singolo ingresso REST |
 | **Ordering.Api** | 5001 | Gestione ordini, aggregato Order, REST + MassTransit |
 | **Invoicing.Api** | 5002 | Fatturazione (placeholder) |
 | **Customers.Api** | 5003 | Clienti: CRUD (create, get, update, cancel soft-delete), REST + MassTransit, EF schema `customers` |
