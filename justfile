@@ -101,9 +101,12 @@ build:
 # Run all services in parallel (Ordering, Customers, AI, Orchestrator)
 run: run-ordering run-customers run-ai run-orchestrator run-invoicing
 
-# Stop all running dotnet processes
+# Stop services listening on project ports (5001, 5002, 5003, 5010, 5020)
 stop:
-    Get-Process dotnet -ErrorAction SilentlyContinue | Stop-Process -Force; Write-Host "All dotnet processes stopped"
+    @foreach ($port in @(5001, 5002, 5003, 5010, 5020)) { \
+        $pids = (lsof -ti :$port) 2>$null; \
+        if ($pids) { $pids -split "`n" | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }; Write-Host "Stopped process on port $port" } \
+    }
 
 # Run Ordering API (port 5001)
 run-ordering:
