@@ -41,7 +41,7 @@ A .NET distributed system playground for AI exploration with multiple bounded co
 
 ## Prerequisites
 
-- [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)
+- [mise](https://mise.jdx.dev/) — run `mise install` to get .NET 9, Ollama, and PowerShell
 - [Docker Desktop](https://www.docker.com/products/docker-desktop)
 
 ## Quick Start
@@ -62,7 +62,7 @@ docker-compose --profile infra --profile ollama up -d
 docker-compose --profile full up -d
 ```
 
-**Apple Silicon (M1/M2/M3/M4):** Run Ollama **natively** for Metal GPU acceleration (3-5x faster inference). Install with `brew install ollama` then `ollama serve`. Do NOT use `--profile ollama` — the Docker Ollama runs CPU-only.
+**Apple Silicon (M1/M2/M3/M4):** Run Ollama **natively** for Metal GPU acceleration (3-5x faster inference). Install with `mise install` (includes Ollama) then `ollama serve`. Do NOT use `--profile ollama` — the Docker Ollama runs CPU-only.
 
 **NVIDIA GPU:** Requires [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html). Use the override:
 
@@ -74,34 +74,21 @@ docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile infra -
 
 ```powershell
 # Auto-detect: uses native Ollama if running, otherwise Docker Ollama
-.\infra\scripts\init-ollama.ps1
+pwsh infra/scripts/init-ollama.ps1
 
 # Force native Ollama
-.\infra\scripts\init-ollama.ps1 -Mode native
+pwsh infra/scripts/init-ollama.ps1 -Mode native
 
 # Force Docker Ollama
-.\infra\scripts\init-ollama.ps1 -Mode docker
-```
-
-```bash
-# Bash equivalents
-./infra/scripts/init-ollama.sh            # auto-detect
-./infra/scripts/init-ollama.sh --native   # force native
-./infra/scripts/init-ollama.sh --docker   # force Docker
+pwsh infra/scripts/init-ollama.ps1 -Mode docker
 ```
 
 ### 3. Create Ordering database schema
 
 Create the `ordering` schema and tables in PostgreSQL (required for Ordering API). Run from the repo root with infrastructure up:
 
-**PowerShell (Windows):**
 ```powershell
 Get-Content infra/scripts/create-ordering-schema.sql | docker exec -i playground-postgres psql -U playground -d playground_db
-```
-
-**Bash (Linux/macOS):**
-```bash
-cat infra/scripts/create-ordering-schema.sql | docker exec -i playground-postgres psql -U playground -d playground_db
 ```
 
 Alternatively, if you have the EF Core tools and migrations are discovered correctly: `dotnet ef database update --project src/Services/Ordering.Api`.
@@ -113,11 +100,7 @@ Alternatively, if you have the EF Core tools and migrations are discovered corre
 With infrastructure running, from repo root:
 
 ```powershell
-.\infra\scripts\wipe-data.ps1
-```
-
-```bash
-./infra/scripts/wipe-data.sh
+pwsh infra/scripts/wipe-data.ps1
 ```
 
 This deletes all rows in `ordering.order_lines`, `ordering.orders`, and `customers.customers`, and removes Qdrant collections `orders` and `customers`. AI.Processor will recreate the collections when new events arrive.
@@ -323,17 +306,17 @@ Hybrid service combining event-driven processing with REST API for AI capabiliti
 
 ### Example: Chat Request
 
-```bash
-curl -X POST http://localhost:5010/api/ai/chat \
-  -H "Content-Type: application/json" \
+```powershell
+curl -X POST http://localhost:5010/api/ai/chat `
+  -H "Content-Type: application/json" `
   -d '{"prompt": "What is machine learning?", "systemPrompt": "You are a helpful assistant."}'
 ```
 
 ### Example: Semantic Search
 
-```bash
-curl -X POST http://localhost:5010/api/ai/search \
-  -H "Content-Type: application/json" \
+```powershell
+curl -X POST http://localhost:5010/api/ai/search `
+  -H "Content-Type: application/json" `
   -d '{"query": "orders shipped to Italy", "limit": 5}'
 ```
 
@@ -504,9 +487,7 @@ DistributedPlayground/
 │   │   └── Customers.Api.Dockerfile
 │   └── scripts/
 │       ├── init-ollama.ps1
-│       ├── init-ollama.sh
-│       ├── wipe-data.ps1
-│       └── wipe-data.sh
+│       └── wipe-data.ps1
 └── DistributedPlayground.sln
 ```
 

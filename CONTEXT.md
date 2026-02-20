@@ -147,7 +147,7 @@
 
 ### Ollama in Docker non usa Metal GPU (Apple Silicon)
 **Problema**: Docker Desktop su macOS esegue i container in una VM Linux; non c'è passthrough Metal GPU → Ollama in Docker usa solo CPU.
-**Soluzione**: Ollama è ora **opzionale** in Docker (profile `ollama` separato da `infra`). Su Apple Silicon usare Ollama nativo (`brew install ollama && ollama serve`) per Metal GPU acceleration (3-5x più veloce). Lo script `init-ollama.sh`/`.ps1` auto-detecta se usare nativo o Docker.
+**Soluzione**: Ollama è ora **opzionale** in Docker (profile `ollama` separato da `infra`). Su Apple Silicon usare Ollama nativo (`mise install` include Ollama, poi `ollama serve`) per Metal GPU acceleration (3-5x più veloce). Lo script `init-ollama.ps1` auto-detecta se usare nativo o Docker.
 
 ### Cannot resolve MassTransitCommandsPlugin (ISendEndpointProvider scoped)
 **Problema**: `Cannot resolve 'Orchestrator.Api.Plugins.MassTransitCommandsPlugin' from root provider because it requires scoped service 'MassTransit.ISendEndpointProvider'.`
@@ -164,11 +164,11 @@
 ## 🛠️ Tools Creati
 
 ### Script wipe-data (infra/scripts)
-- **wipe-data.ps1** / **wipe-data.sh**: cancellano tutti gli ordini e i clienti in PostgreSQL (ordering.order_lines, ordering.orders, customers.customers) e rimuovono le collection Qdrant `orders` e `customers`. Eseguire con infrastruttura Docker attiva (playground-postgres, playground-qdrant).
+- **wipe-data.ps1**: cancella tutti gli ordini e i clienti in PostgreSQL (ordering.order_lines, ordering.orders, customers.customers) e rimuove le collection Qdrant `orders` e `customers`. Eseguire con infrastruttura Docker attiva (playground-postgres, playground-qdrant). Uso: `pwsh infra/scripts/wipe-data.ps1`
 
 ### OrderSimulator
 Console app per generare ordini di test:
-```bash
+```powershell
 dotnet run --project src/Tools/OrderSimulator -- -n 50 -w false
 ```
 - `-n`: numero ordini
@@ -207,34 +207,35 @@ dotnet run --project src/Tools/OrderSimulator -- -n 50 -w false
 
 ## 🚀 Quick Start per nuovo PC
 
-```bash
+```powershell
 # 1. Clona repo
 git clone <repo-url>
 cd DistributedPlayground
 
-# 2. Avvia infrastruttura Docker (senza Ollama Docker su Apple Silicon)
-cd infra && docker-compose --profile infra up -d
+# 2. Installa tool (dotnet, ollama, pwsh)
+mise install
+
+# 3. Avvia infrastruttura Docker (senza Ollama Docker su Apple Silicon)
+cd infra; docker-compose --profile infra up -d
 # oppure con Ollama Docker (CPU only): docker-compose --profile infra --profile ollama up -d
 
-# 3. Inizializza modelli Ollama (auto-detect nativo vs Docker)
-./infra/scripts/init-ollama.sh          # o .ps1
-# Su Apple Silicon: installa Ollama nativo (brew install ollama && ollama serve)
-# poi: ./infra/scripts/init-ollama.sh   # userà il nativo con Metal GPU
+# 4. Inizializza modelli Ollama (auto-detect nativo vs Docker)
+# Su Apple Silicon: avvia Ollama nativo (ollama serve) per Metal GPU
+pwsh infra/scripts/init-ollama.ps1
 
-# 4. Crea schema DB Ordering (schema ordering + tabelle)
+# 5. Crea schema DB Ordering (schema ordering + tabelle)
 # Da root repo, con Docker avviato:
-#   PowerShell: Get-Content infra/scripts/create-ordering-schema.sql | docker exec -i playground-postgres psql -U playground -d playground_db
-#   Bash:      cat infra/scripts/create-ordering-schema.sql | docker exec -i playground-postgres psql -U playground -d playground_db
+Get-Content infra/scripts/create-ordering-schema.sql | docker exec -i playground-postgres psql -U playground -d playground_db
 # Alternativa: dotnet ef database update --project src/Services/Ordering.Api
 
-# 5. Avvia servizi
+# 6. Avvia servizi
 dotnet run --project src/Services/Ordering.Api --urls "http://localhost:5001"
 dotnet run --project src/Services/AI.Processor --urls "http://localhost:5010"
 
-# 6. Avvia frontend
-cd src/Frontend/ordering-web && npm install && npm start
+# 7. Avvia frontend
+cd src/Frontend/ordering-web; npm install; npm start
 
-# 7. Genera ordini di test
+# 8. Genera ordini di test
 dotnet run --project src/Tools/OrderSimulator -- -n 20 -w false
 ```
 

@@ -61,7 +61,7 @@ services:
   # for Metal GPU acceleration (3-5x faster inference).
   #   - With Docker Ollama:  docker-compose --profile infra --profile ollama up -d
   #   - Without (native):    docker-compose --profile infra up -d
-  #                           then start Ollama natively (brew install ollama && ollama serve)
+  #                           then install Ollama natively (mise install) and run: ollama serve
   ollama:
     image: ollama/ollama:latest
     container_name: playground-ollama
