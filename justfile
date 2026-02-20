@@ -82,34 +82,24 @@ db-all: db-ordering db-customers
 db-wipe:
     pwsh infra/scripts/wipe-data.ps1
 
+# --- CI ---
+
+# Test PR build locally with act
+ci:
+    act pull_request
+
 # --- Build ---
 
 # Restore all NuGet packages
 restore:
-    dotnet restore src/Services/Ordering.Api/Ordering.Api.csproj
-    dotnet restore src/Services/Customers.Api/Customers.Api.csproj
-    dotnet restore src/Services/AI.Processor/AI.Processor.csproj
-    dotnet restore src/Services/Orchestrator.Api/Orchestrator.Api.csproj
+    dotnet restore ./DistributedPlayground.sln
 
 # Build all services
 build:
-    dotnet build src/Services/Ordering.Api -c Release
-    dotnet build src/Services/Customers.Api -c Release
-    dotnet build src/Services/AI.Processor -c Release
-    dotnet build src/Services/Orchestrator.Api -c Release
-
-# --- Run Services ---
+    dotnet build ./DistributedPlayground.sln -c Release
 
 # Run all services in parallel (Ordering, Customers, AI, Orchestrator)
-run:
-    $procs = @( \
-        (Start-Process -PassThru dotnet 'run --project src/Services/Ordering.Api --urls http://localhost:5001'), \
-        (Start-Process -PassThru dotnet 'run --project src/Services/Customers.Api --urls http://localhost:5003'), \
-        (Start-Process -PassThru dotnet 'run --project src/Services/AI.Processor --urls http://localhost:5010'), \
-        (Start-Process -PassThru dotnet 'run --project src/Services/Orchestrator.Api --urls http://localhost:5020') \
-    ); \
-    Write-Host "Started: Ordering(:5001) Customers(:5003) AI(:5010) Orchestrator(:5020) — press Ctrl+C to stop"; \
-    try { $procs | Wait-Process } finally { $procs | Stop-Process -ErrorAction SilentlyContinue }
+run: run-ordering run-customers run-ai run-orchestrator run-invoicing
 
 # Run Ordering API (port 5001)
 run-ordering:
