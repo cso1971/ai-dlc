@@ -154,6 +154,7 @@ The **Gateway** is a .NET reverse proxy (YARP) that exposes a single entry point
 - **Routes:** `/api/orders`, `/api/metrics` → Ordering.Api; `/api/customers` → Customers.Api; `/api/invoices` → Invoicing.Api; `/api/orchestrator` → Orchestrator.Api; `/api/ai` → AI.Processor
 - **Run:** `dotnet run --project src/Services/Gateway`
 - **Docker:** Included in `docker-compose --profile full` as `gateway` (port 5000). Backend addresses are set via `appsettings.Docker.json` (container names for ordering/customers/invoicing; `host.docker.internal` for orchestrator/ai when run locally).
+- **Frontend:** The Angular app is configured to use the Gateway for all API calls (`environment.apiUrl`, `customersApiUrl`, `aiApiUrl`, `orchestratorApiUrl` all point to `http://localhost:5000`). Ensure the Gateway is running when using the frontend.
 
 ## Orchestrator API (Semantic Kernel)
 

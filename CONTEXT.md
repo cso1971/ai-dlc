@@ -38,6 +38,7 @@
 
 ### Frontend
 - **Angular 17** su porta 4200
+- Chiamate API tutte tramite **Gateway** (http://localhost:5000); environment con `apiUrl`, `customersApiUrl`, `aiApiUrl`, `orchestratorApiUrl` puntano al Gateway.
 - Pagine: lista ordini, dettaglio, creazione, workflow actions
 - **AI Chat Assistant**: sempre visibile; selettore "Chat with: RAG | Semantic Kernel" per usare AI.Processor (RAG) o Orchestrator.Api (Semantic Kernel). Search e Analyze solo con RAG.
 

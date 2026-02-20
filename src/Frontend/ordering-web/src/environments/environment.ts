@@ -1,7 +1,8 @@
+/** All APIs via Gateway (YARP) - single entry point at :5000 */
 export const environment = {
   production: false,
-  apiUrl: 'http://localhost:5001',
-  customersApiUrl: 'http://localhost:5003',
-  aiApiUrl: 'http://localhost:5010',
-  orchestratorApiUrl: 'http://localhost:5020'
+  apiUrl: 'http://localhost:5000',
+  customersApiUrl: 'http://localhost:5000',
+  aiApiUrl: 'http://localhost:5000',
+  orchestratorApiUrl: 'http://localhost:5000'
 };
