@@ -1,7 +1,7 @@
 # 🧠 CONTEXT.md - Session Summary
 
 > Questo file contiene il contesto e la cronologia delle decisioni prese durante lo sviluppo del progetto.
-> Ultimo aggiornamento: 2026-02-10
+> Ultimo aggiornamento: 2026-02-20
 
 ---
 
@@ -35,6 +35,7 @@
 | Qdrant | 6333/6334 | Vector database per RAG |
 | Ollama | 11434 | LLM locale (llama3.2 + nomic-embed-text) |
 | Jaeger | 16686/4317 | Distributed tracing |
+| Keycloak | 8180 | IdP; realm `playground`, client `playground-api` (backend), `ordering-web` (SPA). Import automatico da `infra/keycloak/playground-realm.json`. Admin: admin/admin. |
 
 ### Frontend
 - **Angular 17** su porta 4200

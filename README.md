@@ -131,6 +131,7 @@ dotnet run --project src/Services/Orchestrator.Api
 | Qdrant Dashboard | http://localhost:6333/dashboard | - |
 | Ollama API | http://localhost:11434 | - |
 | Jaeger UI | http://localhost:16686 | - |
+| **Keycloak** | http://localhost:8180 | Admin: `admin` / `admin` — Realm: `playground`, clients: `playground-api` (backend), `ordering-web` (SPA). Realm is auto-imported from `infra/keycloak/playground-realm.json` on first start. |
 
 ## Service URLs
 
@@ -155,6 +156,18 @@ The **Gateway** is a .NET reverse proxy (YARP) that exposes a single entry point
 - **Run:** `dotnet run --project src/Services/Gateway`
 - **Docker:** Included in `docker-compose --profile full` as `gateway` (port 5000). Backend addresses are set via `appsettings.Docker.json` (container names for ordering/customers/invoicing; `host.docker.internal` for orchestrator/ai when run locally).
 - **Frontend:** The Angular app is configured to use the Gateway for all API calls (`environment.apiUrl`, `customersApiUrl`, `aiApiUrl`, `orchestratorApiUrl` all point to `http://localhost:5000`). Ensure the Gateway is running when using the frontend.
+- **Keycloak (Step 1):** IdP runs in Docker (`docker compose --profile infra up -d`). Realm `playground` and clients `playground-api`, `ordering-web` are created automatically from `infra/keycloak/playground-realm.json`. Next steps: Gateway JWT validation (Step 2) and Angular login (Step 4).
+
+## Keycloak (IdP – Step 1)
+
+Keycloak is the Identity Provider for authentication and (later) authorization.
+
+- **URL:** http://localhost:8180 — Admin Console: http://localhost:8180/admin (login: `admin` / `admin`)
+- **Realm:** `playground` (auto-imported on first start from `infra/keycloak/playground-realm.json`)
+- **Clients:**  
+  - `playground-api` — confidential; audience for Gateway/JWT validation (Step 2)  
+  - `ordering-web` — public SPA; redirect URIs `http://localhost:4200/*`, web origins `http://localhost:4200`
+- **Run:** included in `docker compose --profile infra up -d` (or `full`). No auth is enforced on the Gateway or frontend until Step 2 and Step 4.
 
 ## Orchestrator API (Semantic Kernel)
 
