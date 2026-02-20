@@ -101,6 +101,10 @@ build:
 # Run all services in parallel (Ordering, Customers, AI, Orchestrator)
 run: run-ordering run-customers run-ai run-orchestrator run-invoicing
 
+# Stop all running dotnet processes
+stop:
+    Get-Process dotnet -ErrorAction SilentlyContinue | Stop-Process -Force; Write-Host "All dotnet processes stopped"
+
 # Run Ordering API (port 5001)
 run-ordering:
     dotnet run --project src/Services/Ordering.Api --urls "http://localhost:5001"
