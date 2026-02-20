@@ -1,0 +1,4 @@
+[tools]
+dotnet = "9"
+ollama = "latest"
+powershell = "latest"
