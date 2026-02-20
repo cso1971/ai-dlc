@@ -45,7 +45,7 @@ infra-status:
 
 # --- Ollama ---
 
-# Start native Ollama (Apple Silicon Metal GPU)
+# Start native Ollama (GPU acceleration)
 ollama-serve:
     ollama serve
 
