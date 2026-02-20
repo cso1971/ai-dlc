@@ -169,7 +169,8 @@ Tutti i comandi del progetto sono nel `justfile` (root). Eseguire `just` per la 
 - `just ollama-init` — pull modelli Ollama
 - `just db-all` — crea tutti gli schema DB
 - `just db-wipe` — cancella tutti i dati (PostgreSQL + Qdrant)
-- `just run-ordering` / `just run-customers` / `just run-ai` / `just run-orchestrator` — avvia servizi
+- `just run-all` — avvia tutti i servizi in parallelo (in finestre separate)
+- `just run-ordering` / `just run-customers` / `just run-ai` / `just run-orchestrator` — avvia singolo servizio
 - `just frontend` — avvia Angular
 - `just simulate` — genera ordini di test (default 10 clienti + 10 ordini + workflow)
 - `just simulate-quick 50` — 50 ordini senza workflow

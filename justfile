@@ -100,6 +100,14 @@ build:
 
 # --- Run Services ---
 
+# Run all services in parallel (Ordering, Customers, AI, Orchestrator)
+run-all:
+    Start-Process pwsh -ArgumentList '-NoProfile', '-Command', 'dotnet run --project src/Services/Ordering.Api --urls "http://localhost:5001"'
+    Start-Process pwsh -ArgumentList '-NoProfile', '-Command', 'dotnet run --project src/Services/Customers.Api --urls "http://localhost:5003"'
+    Start-Process pwsh -ArgumentList '-NoProfile', '-Command', 'dotnet run --project src/Services/AI.Processor --urls "http://localhost:5010"'
+    Start-Process pwsh -ArgumentList '-NoProfile', '-Command', 'dotnet run --project src/Services/Orchestrator.Api --urls "http://localhost:5020"'
+    Write-Host "All services started in separate windows: Ordering(:5001) Customers(:5003) AI(:5010) Orchestrator(:5020)"
+
 # Run Ordering API (port 5001)
 run-ordering:
     dotnet run --project src/Services/Ordering.Api --urls "http://localhost:5001"

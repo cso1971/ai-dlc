@@ -54,10 +54,7 @@ just infra-up           # Start Docker infra (without Docker Ollama)
 just ollama-serve       # Start native Ollama (Apple Silicon Metal GPU) — separate terminal
 just ollama-init        # Pull models (llama3.2 + nomic-embed-text)
 just db-all             # Create all DB schemas (ordering + customers)
-just run-ordering       # Start Ordering API (:5001) — separate terminal
-just run-customers      # Start Customers API (:5003) — separate terminal
-just run-ai             # Start AI Processor (:5010) — separate terminal
-just run-orchestrator   # Start Orchestrator API (:5020) — separate terminal
+just run-all            # Start all services in parallel (separate windows)
 just frontend-install   # Install Angular dependencies
 just frontend           # Start Angular frontend (:4200)
 just simulate           # Generate test data (10 customers + 10 orders + workflow)
