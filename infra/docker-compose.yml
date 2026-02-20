@@ -57,11 +57,12 @@ services:
     networks:
       - playground-network
 
-  # Ollama is optional in Docker. On Apple Silicon, run Ollama natively
-  # for Metal GPU acceleration (3-5x faster inference).
-  #   - With Docker Ollama:  docker-compose --profile infra --profile ollama up -d
-  #   - Without (native):    docker-compose --profile infra up -d
-  #                           then install Ollama natively (mise install) and run: ollama serve
+  # Ollama is optional in Docker. Running Ollama natively gives GPU acceleration
+  # on any platform (Metal, CUDA, ROCm) without extra Docker configuration.
+  #   - With Docker Ollama (CPU only*):  docker-compose --profile infra --profile ollama up -d
+  #   - Without (native GPU):            docker-compose --profile infra up -d
+  #                                      then: mise install && ollama serve
+  # *NVIDIA GPU in Docker requires NVIDIA Container Toolkit
   ollama:
     image: ollama/ollama:latest
     container_name: playground-ollama

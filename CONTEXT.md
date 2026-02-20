@@ -32,7 +32,7 @@
 | PostgreSQL | 5432 | Database (schema `ordering`) |
 | RabbitMQ | 5672/15672 | Message broker |
 | Qdrant | 6333/6334 | Vector database per RAG |
-| Ollama | 11434 | LLM locale (llama3.2 + nomic-embed-text) — **opzionale in Docker**: su Apple Silicon usare Ollama nativo per Metal GPU (3-5x più veloce) |
+| Ollama | 11434 | LLM locale (llama3.2 + nomic-embed-text) — **opzionale in Docker**: consigliato Ollama nativo per GPU acceleration (Metal/CUDA/ROCm, 3-5x più veloce) |
 | Jaeger | 16686/4317 | Distributed tracing |
 
 ### Frontend
@@ -145,9 +145,9 @@
 **Causa**: Analisi AI sincrona per ogni ordine (~40 sec ciascuna).
 **Mitigazione**: Timeout esteso, ma potrebbe servire rimuovere analisi AI o usare modello più leggero.
 
-### Ollama in Docker non usa Metal GPU (Apple Silicon)
-**Problema**: Docker Desktop su macOS esegue i container in una VM Linux; non c'è passthrough Metal GPU → Ollama in Docker usa solo CPU.
-**Soluzione**: Ollama è ora **opzionale** in Docker (profile `ollama` separato da `infra`). Su Apple Silicon usare Ollama nativo (`mise install` include Ollama, poi `ollama serve`) per Metal GPU acceleration (3-5x più veloce). Lo script `init-ollama.ps1` auto-detecta se usare nativo o Docker.
+### Ollama in Docker non usa GPU
+**Problema**: Docker Ollama non ha accesso alla GPU di default (su macOS nessun passthrough Metal; su Linux serve NVIDIA Container Toolkit per CUDA).
+**Soluzione**: Ollama è ora **opzionale** in Docker (profile `ollama` separato da `infra`). Consigliato Ollama nativo (`mise install` include Ollama, poi `ollama serve`) per GPU acceleration automatica su qualsiasi piattaforma (Metal, CUDA, ROCm — 3-5x più veloce). Lo script `init-ollama.ps1` auto-detecta se usare nativo o Docker.
 
 ### Cannot resolve MassTransitCommandsPlugin (ISendEndpointProvider scoped)
 **Problema**: `Cannot resolve 'Orchestrator.Api.Plugins.MassTransitCommandsPlugin' from root provider because it requires scoped service 'MassTransit.ISendEndpointProvider'.`

@@ -63,9 +63,9 @@ just frontend           # Start Angular frontend (:4200)
 just simulate           # Generate test data (10 customers + 10 orders + workflow)
 ```
 
-**Apple Silicon (M1/M2/M3/M4):** Use `just infra-up` (without Docker Ollama) + `just ollama-serve` for Metal GPU acceleration (3-5x faster). Do NOT use `just infra-up-ollama` — Docker Ollama runs CPU-only.
+**GPU acceleration:** Use `just infra-up` (without Docker Ollama) + `just ollama-serve` to run Ollama natively with GPU support (Metal, CUDA, ROCm — 3-5x faster). This is the recommended setup for any machine with a GPU.
 
-**Docker Ollama (CPU):** `just infra-up-ollama` starts infra with Ollama in Docker.
+**Docker Ollama (CPU only):** `just infra-up-ollama` starts Ollama in Docker without GPU access (NVIDIA GPU in Docker requires [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)).
 
 **Wipe all data:** `just db-wipe` deletes all rows in PostgreSQL and removes Qdrant collections.
 
