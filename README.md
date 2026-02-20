@@ -461,7 +461,7 @@ Angular 17 SPA for managing orders and customers.
 
 ```powershell
 just frontend-install   # npm install (first time)
-just frontend           # npm start
+just run-frontend           # npm start
 ```
 
 **URL:** http://localhost:4200 (or http://127.0.0.1:4200 — CORS allows both)

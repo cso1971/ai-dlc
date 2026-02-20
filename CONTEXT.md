@@ -228,7 +228,7 @@ just run-customers
 just run-ai
 just run-orchestrator
 just frontend-install   # 7. Installa dipendenze frontend
-just frontend           # 8. Avvia Angular (http://localhost:4200)
+just run-frontend       # 8. Avvia Angular (http://localhost:4200)
 just simulate           # 9. Genera ordini di test
 ```
 

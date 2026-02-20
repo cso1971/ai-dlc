@@ -99,7 +99,7 @@ build:
     dotnet build ./DistributedPlayground.sln -c Release
 
 # Run all services in parallel (Ordering, Customers, AI, Orchestrator)
-run: run-ordering run-customers run-ai run-orchestrator run-invoicing
+run: run-ordering run-customers run-ai run-orchestrator run-invoicing run-frontend
 
 # Stop services listening on project ports (5001, 5002, 5003, 5010, 5020)
 stop:
@@ -135,7 +135,7 @@ frontend-install:
     cd src/Frontend/ordering-web; npm install
 
 # Run Angular frontend (port 4200)
-frontend:
+run-frontend:
     cd src/Frontend/ordering-web; npm start
 
 # --- Order Simulator ---
