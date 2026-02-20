@@ -163,14 +163,20 @@
 
 ## 🛠️ Tools Creati
 
-### Script wipe-data (infra/scripts)
-- **wipe-data.ps1**: cancella tutti gli ordini e i clienti in PostgreSQL (ordering.order_lines, ordering.orders, customers.customers) e rimuove le collection Qdrant `orders` e `customers`. Eseguire con infrastruttura Docker attiva (playground-postgres, playground-qdrant). Uso: `pwsh infra/scripts/wipe-data.ps1`
+### justfile
+Tutti i comandi del progetto sono nel `justfile` (root). Eseguire `just` per la lista completa. Esempi:
+- `just infra-up` — avvia Docker (senza Ollama)
+- `just ollama-init` — pull modelli Ollama
+- `just db-all` — crea tutti gli schema DB
+- `just db-wipe` — cancella tutti i dati (PostgreSQL + Qdrant)
+- `just run-ordering` / `just run-customers` / `just run-ai` / `just run-orchestrator` — avvia servizi
+- `just frontend` — avvia Angular
+- `just simulate` — genera ordini di test (default 10 clienti + 10 ordini + workflow)
+- `just simulate-quick 50` — 50 ordini senza workflow
+- `just simulate-custom c=15 n=50` — 15 clienti, 50 ordini
 
 ### OrderSimulator
-Console app per generare ordini di test:
-```powershell
-dotnet run --project src/Tools/OrderSimulator -- -n 50 -w false
-```
+Console app per generare ordini di test (vedi `just simulate-help` per opzioni):
 - `-n`: numero ordini
 - `-c`/`--customers`: numero clienti da creare se non ne esistono (default 10); inviati come comandi **CreateCustomer** su MassTransit (`queue:create-customer`), così **CustomerCreated** viene pubblicato e consumato da AI.Processor per Qdrant
 - `-w`: simula workflow (Start → Ship → Deliver → Invoice)
@@ -208,35 +214,21 @@ dotnet run --project src/Tools/OrderSimulator -- -n 50 -w false
 ## 🚀 Quick Start per nuovo PC
 
 ```powershell
-# 1. Clona repo
 git clone <repo-url>
 cd DistributedPlayground
 
-# 2. Installa tool (dotnet, ollama, pwsh)
-mise install
-
-# 3. Avvia infrastruttura Docker (senza Ollama Docker su Apple Silicon)
-cd infra; docker-compose --profile infra up -d
-# oppure con Ollama Docker (CPU only): docker-compose --profile infra --profile ollama up -d
-
-# 4. Inizializza modelli Ollama (auto-detect nativo vs Docker)
-# Su Apple Silicon: avvia Ollama nativo (ollama serve) per Metal GPU
-pwsh infra/scripts/init-ollama.ps1
-
-# 5. Crea schema DB Ordering (schema ordering + tabelle)
-# Da root repo, con Docker avviato:
-Get-Content infra/scripts/create-ordering-schema.sql | docker exec -i playground-postgres psql -U playground -d playground_db
-# Alternativa: dotnet ef database update --project src/Services/Ordering.Api
-
-# 6. Avvia servizi
-dotnet run --project src/Services/Ordering.Api --urls "http://localhost:5001"
-dotnet run --project src/Services/AI.Processor --urls "http://localhost:5010"
-
-# 7. Avvia frontend
-cd src/Frontend/ordering-web; npm install; npm start
-
-# 8. Genera ordini di test
-dotnet run --project src/Tools/OrderSimulator -- -n 20 -w false
+just setup              # 1. Installa tool (dotnet, ollama, pwsh, just)
+just infra-up           # 2. Avvia Docker (senza Ollama Docker su Apple Silicon)
+just ollama-serve       # 3. Avvia Ollama nativo (Metal GPU) — in un terminale separato
+just ollama-init        # 4. Pull modelli (llama3.2 + nomic-embed-text)
+just db-all             # 5. Crea schema DB (ordering + customers)
+just run-ordering       # 6. Avvia servizi — ognuno in un terminale separato
+just run-customers
+just run-ai
+just run-orchestrator
+just frontend-install   # 7. Installa dipendenze frontend
+just frontend           # 8. Avvia Angular (http://localhost:4200)
+just simulate           # 9. Genera ordini di test
 ```
 
 ---
