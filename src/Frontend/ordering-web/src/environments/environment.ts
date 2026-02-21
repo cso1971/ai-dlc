@@ -4,5 +4,10 @@ export const environment = {
   apiUrl: 'http://localhost:5000',
   customersApiUrl: 'http://localhost:5000',
   aiApiUrl: 'http://localhost:5000',
-  orchestratorApiUrl: 'http://localhost:5000'
+  orchestratorApiUrl: 'http://localhost:5000',
+  keycloak: {
+    url: 'http://localhost:8180/',
+    realm: 'playground',
+    clientId: 'ordering-web'
+  }
 };

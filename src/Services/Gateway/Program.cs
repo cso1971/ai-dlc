@@ -5,19 +5,29 @@ var builder = WebApplication.CreateBuilder(args);
 
 var authConfig = builder.Configuration.GetSection("Authentication");
 var authority = authConfig["Authority"];
-var audience = authConfig["Audience"];
 var requireHttpsMetadata = authConfig.GetValue<bool>("RequireHttpsMetadata");
 
-// JWT Bearer validation (Keycloak as issuer)
+// CORS so Angular (localhost:4200) can call the Gateway
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.WithOrigins("http://localhost:4200", "http://127.0.0.1:4200")
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
+
+// JWT Bearer validation (Keycloak as issuer). Accept playground-api (backend) and ordering-web (SPA) tokens.
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
         options.Authority = authority;
-        options.Audience = audience;
         options.RequireHttpsMetadata = requireHttpsMetadata;
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateAudience = true,
+            ValidAudiences = new[] { "playground-api", "ordering-web", "account" },
             ValidateIssuer = true,
             ValidateLifetime = true
         };
@@ -30,6 +40,7 @@ builder.Services.AddReverseProxy()
 
 var app = builder.Build();
 
+app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 

@@ -152,11 +152,12 @@ When using the Gateway, use **http://localhost:5000** as the API base: e.g. `GET
 The **Gateway** is a .NET reverse proxy (YARP) that exposes a single entry point for all domain APIs and enforces JWT authentication (Keycloak).
 
 - **URL:** http://localhost:5000
-- **Auth (Step 2):** All proxied requests require a valid JWT Bearer token (Keycloak realm `playground`, audience `playground-api`). `GET /` and `GET /health` are public (no token). Config: `Authentication:Authority`, `Authentication:Audience`, `Authentication:RequireHttpsMetadata` in appsettings.
+- **Auth (Step 2):** All proxied requests require a valid JWT Bearer token (Keycloak realm `playground`). Accepted audiences: `playground-api` (backend), `ordering-web` (SPA), `account`. `GET /` and `GET /health` are public (no token). Config: `Authentication:Authority`, `Authentication:RequireHttpsMetadata` in appsettings.
+- **CORS:** Enabled for `http://localhost:4200` and `http://127.0.0.1:4200` so the Angular app can call the Gateway.
 - **Routes:** `/api/orders`, `/api/metrics` → Ordering.Api; `/api/customers` → Customers.Api; `/api/invoices` → Invoicing.Api; `/api/orchestrator` → Orchestrator.Api; `/api/ai` → AI.Processor
 - **Run:** `dotnet run --project src/Services/Gateway`. Keycloak must be running (e.g. `docker compose --profile infra up -d`) so the Gateway can validate tokens.
 - **Docker:** Included in `docker-compose --profile full` as `gateway` (port 5000). Backend and Keycloak addresses in `appsettings.Docker.json`.
-- **Frontend:** The Angular app calls the Gateway; until Step 4 (Angular login), API calls will get 401 unless you pass a Bearer token.
+- **Frontend (Step 4):** The Angular app uses Keycloak login with **Authorization Code + PKCE** (no implicit flow). When not authenticated the guard redirects to Keycloak; after login the app sends the Bearer token to the Gateway. Logout in the navbar. Create a user in Keycloak Admin (realm **playground** → Users → Add user) to log in. Use **http://localhost:4200** (not 127.0.0.1) to avoid redirect issues.
 - **Testing with a token:** Get an access token from Keycloak (realm `playground`, client `playground-api` — use the client secret from Keycloak Admin → Clients → playground-api → Credentials). Example: `POST http://localhost:8180/realms/playground/protocol/openid-connect/token` with `grant_type=client_credentials`, `client_id=playground-api`, `client_secret=<secret>`. Then call `GET http://localhost:5000/api/orders` with header `Authorization: Bearer <access_token>`.
 
 ## Keycloak (IdP – Step 1)
@@ -167,8 +168,8 @@ Keycloak is the Identity Provider for authentication and (later) authorization.
 - **Realm:** `playground` (auto-imported on first start from `infra/keycloak/playground-realm.json`)
 - **Clients:**  
   - `playground-api` — confidential; audience for Gateway/JWT validation (Step 2)  
-  - `ordering-web` — public SPA; redirect URIs `http://localhost:4200/*`, web origins `http://localhost:4200`
-- **Run:** included in `docker compose --profile infra up -d` (or `full`). Gateway enforces JWT (Step 2); frontend login in Step 4.
+  - `ordering-web` — public SPA; **Authorization Code + PKCE** (Standard Flow). Redirect URIs `http://localhost:4200/*`, web origins `http://localhost:4200`. Used by the Angular app for login (Step 4).
+- **Run:** included in `docker compose --profile infra up -d` (or `full`). Gateway enforces JWT (Step 2); Angular uses Keycloak login with PKCE (Step 4).
 
 ## Orchestrator API (Semantic Kernel)
 
@@ -548,7 +549,7 @@ npm install
 npm start
 ```
 
-**URL:** http://localhost:4200 (or http://127.0.0.1:4200 — CORS allows both)
+**URL:** http://localhost:4200. Use **localhost** (not 127.0.0.1) for Keycloak redirect to work correctly. All routes (orders, customers) require login; the app redirects to Keycloak and then sends the Bearer token to the Gateway.
 
 **If the UI doesn’t start or load:**
 - Ensure **Node.js** is installed and `node` / `npm` are available in the terminal (e.g. `node -v`, `npm -v`).

@@ -20,7 +20,7 @@
 ### Bounded Contexts
 | Servizio | Porta | Descrizione |
 |----------|-------|-------------|
-| **Gateway** | 5000 | API Gateway (YARP); validazione JWT Keycloak (Step 2); `/` e `/health` pubblici, tutte le route proxy richiedono Bearer token (audience `playground-api`) |
+| **Gateway** | 5000 | API Gateway (YARP); validazione JWT Keycloak (Step 2); CORS per :4200; `/` e `/health` pubblici, route proxy richiedono Bearer (audience `playground-api`, `ordering-web`, `account`) |
 | **Ordering.Api** | 5001 | Gestione ordini, aggregato Order, REST + MassTransit |
 | **Invoicing.Api** | 5002 | Fatturazione (placeholder) |
 | **Customers.Api** | 5003 | Clienti: CRUD (create, get, update, cancel soft-delete), REST + MassTransit, EF schema `customers` |
@@ -39,8 +39,9 @@
 
 ### Frontend
 - **Angular 17** su porta 4200
-- Chiamate API tutte tramite **Gateway** (http://localhost:5000); environment con `apiUrl`, `customersApiUrl`, `aiApiUrl`, `orchestratorApiUrl` puntano al Gateway.
-- Pagine: lista ordini, dettaglio, creazione, workflow actions
+- **Auth (Step 4):** Login con **Authorization Code + PKCE** (nessun flusso implicito). keycloak-angular + keycloak-js; init con `flow: 'standard'`, `pkceMethod: 'S256'`. Guard reindirizza a Keycloak se non autenticato; Bearer inviato al Gateway; Logout in navbar. Client Keycloak `ordering-web` (pubblico). Usare **http://localhost:4200** (non 127.0.0.1).
+- Chiamate API tutte tramite **Gateway** (http://localhost:5000); environment con `apiUrl`, `keycloak` (url, realm, clientId).
+- Pagine: lista ordini, dettaglio, creazione, workflow actions (tutte protette da guard).
 - **AI Chat Assistant**: sempre visibile; selettore "Chat with: RAG | Semantic Kernel" per usare AI.Processor (RAG) o Orchestrator.Api (Semantic Kernel). Search e Analyze solo con RAG.
 
 ---
