@@ -148,7 +148,8 @@
 **Problema**: Troppe richieste parallele o singola inferenza LLM saturano tutti i core CPU.
 **Causa**: Senza GPU, l'inferenza llama3.2 usa tutti i thread CPU disponibili.
 **Soluzioni applicate**:
-- `OLLAMA_NUM_PARALLEL=1` e `OLLAMA_MAX_LOADED_MODELS=1` per evitare richieste parallele
+- `OLLAMA_NUM_PARALLEL=1` per evitare richieste parallele
+- `OLLAMA_MAX_LOADED_MODELS=2` per tenere llama3.2 + nomic-embed-text in VRAM simultaneamente (evita model swapping ~10s per chiamata)
 - `OLLAMA_FLASH_ATTENTION=1` per ottimizzare l'uso memoria durante inferenza
 - Limiti risorse Docker: `cpus: 8`, `memory: 8G` (modificabili in docker-compose.yml)
 - **Raccomandazione**: abilitare GPU NVIDIA con `docker-compose.gpu.yml` per ridurre CPU al minimo e velocizzare di 10-20x
