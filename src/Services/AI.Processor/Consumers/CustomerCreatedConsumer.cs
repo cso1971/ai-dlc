@@ -46,19 +46,8 @@ public class CustomerCreatedConsumer : IConsumer<CustomerCreated>
 
             await _qdrantService.UpsertCustomerAsync(message.CustomerId, embedding, payload, context.CancellationToken);
 
-            var analysisPrompt = $"""
-                Analyze this new customer and provide business insights:
-
-                {customerText}
-
-                Consider: segment potential, geographic reach, billing/shipping setup, preferred language/currency.
-                """;
-
-            var analysis = await _ollamaService.GenerateCompletionAsync(analysisPrompt, context.CancellationToken);
-
-            _logger.LogInformation("Customer {CustomerId} processed and stored in RAG. Company: {CompanyName}. Analysis: {Analysis}",
-                message.CustomerId, customer.CompanyName,
-                analysis.Substring(0, Math.Min(200, analysis.Length)));
+            _logger.LogInformation("Customer {CustomerId} processed and stored in RAG. Company: {CompanyName}",
+                message.CustomerId, customer.CompanyName);
         }
         catch (Exception ex)
         {
