@@ -94,6 +94,23 @@ services:
     networks:
       - playground-network
 
+  redis:
+    image: redis:7-alpine
+    container_name: playground-redis
+    profiles: ["infra", "full"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - playground-network
+
   keycloak:
     image: quay.io/keycloak/keycloak:latest
     container_name: playground-keycloak
@@ -221,3 +238,4 @@ volumes:
   rabbitmq_data:
   qdrant_data:
   ollama_data:
+  redis_data:

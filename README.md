@@ -13,8 +13,8 @@ A .NET distributed system playground for AI exploration with multiple bounded co
 ┌─────────────────────────────────────────┼─────────────────────────────────────┐
 │                    INFRASTRUCTURE        │                                      │
 ├───────────────┬─────────────┬───────────┼───────────┬─────────────┬────────────┤
-│   PostgreSQL  │  RabbitMQ   │  Qdrant   │  Ollama   │   Jaeger    │             │
-│   :5432       │ :5672/15672 │ :6333/6334│  :11434   │   :16686    │             │
+│   PostgreSQL  │  RabbitMQ   │  Qdrant   │  Ollama   │   Jaeger    │   Redis     │
+│   :5432       │ :5672/15672 │ :6333/6334│  :11434   │   :16686    │   :6379     │
 └───────────────┴─────────────┴───────────┴───────────┴─────────────┴────────────┘
          │              │              │         │
 ┌────────▼────┐  ┌──────▼──────┐  ┌────▼─────┐  │     ┌──────────────────────────┐
@@ -173,6 +173,7 @@ dotnet run --project src/Services/Orchestrator.Api
 | Qdrant Dashboard | http://localhost:6333/dashboard | - |
 | Ollama API | http://localhost:11434 | - |
 | Jaeger UI | http://localhost:16686 | - |
+| Redis | `localhost:6379` | - |
 | **Keycloak** | http://localhost:8180 | Admin: `admin` / `admin` — Realm: `playground`, clients: `playground-api` (backend), `ordering-web` (SPA). Realm is auto-imported from `infra/keycloak/playground-realm.json` on first start. |
 
 ## Service URLs
@@ -637,6 +638,7 @@ Click the 🤖 button to open/close the panel. Use "Chat with: RAG" or "Chat wit
 | **Jaeger** | Trace visualization |
 | **Swashbuckle** | OpenAPI/Swagger |
 | **Qdrant** | Vector database for AI/RAG |
+| **Redis** | Cache, CQRS projections read model |
 | **Ollama** | Local LLM |
 
 ## Contracts (MassTransit Messages)
