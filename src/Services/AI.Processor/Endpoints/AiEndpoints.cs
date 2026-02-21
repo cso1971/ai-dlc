@@ -32,7 +32,7 @@ public static class AiEndpoints
             var queryEmbedding = await embeddingTask;
             var orderStats = await statsTask;
             
-            var maxResults = request.MaxResults ?? 20;
+            var maxResults = request.MaxResults ?? 10;
             var limitPerCollection = (maxResults + 1) / 2; // split between orders and customers
             
             // Step 2: Search Qdrant for relevant orders and customers (parallel)

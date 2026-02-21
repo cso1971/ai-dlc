@@ -109,7 +109,7 @@
 - **Aggregati reali**: per risposte corrette sul valore totale degli ordini, il chat recupera gli aggregati da Ordering.Api (`GET /api/orders/stats`) e li inietta nel contesto come sezione "DATI DI SISTEMA (aggregati reali)". Il system prompt istruisce il LLM a usare solo questi dati per totali/somme, non la somma dei singoli ordini restituiti dalla search (che è un sottoinsieme).
 - Passa i risultati come contesto a Ollama
 - Risponde basandosi su dati reali, non conoscenza generica
-- **MaxResults** (default 20): limite totale contesto; viene ripartito tra ordini e clienti (metà ciascuno)
+- **MaxResults** (default 10): limite totale contesto; viene ripartito tra ordini e clienti (5+5). Ottimizzato per llama3.2 (3B): top-5 coprono i risultati rilevanti, totali gestiti via stats aggregati
 
 ### 5. **Orchestrator.Api (Semantic Kernel)**
 - Nuovo servizio che usa **Semantic Kernel** con **Ollama** (solo LLM locale, nessuna chiamata a API esterne).
