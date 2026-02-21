@@ -67,15 +67,8 @@ public class OrderShippedConsumer : IConsumer<OrderShipped>
 
             await _qdrantService.UpsertOrderAsync(message.OrderId, embedding, payload, context.CancellationToken);
 
-            // Analyze shipping logistics
-            var analysis = await _ollamaService.AnalyzeOrderEventAsync(
-                "Order Shipped",
-                shippingText,
-                context.CancellationToken);
-
-            _logger.LogInformation("Order {OrderId} shipping processed. Carrier: {Carrier}, ETA: {ETA}. Analysis: {Analysis}", 
-                message.OrderId, message.Carrier, message.EstimatedDeliveryDate,
-                analysis.Substring(0, Math.Min(200, analysis.Length)));
+            _logger.LogInformation("Order {OrderId} shipping processed. Carrier: {Carrier}, ETA: {ETA}",
+                message.OrderId, message.Carrier, message.EstimatedDeliveryDate);
         }
         catch (Exception ex)
         {

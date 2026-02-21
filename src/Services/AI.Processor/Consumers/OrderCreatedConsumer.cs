@@ -52,20 +52,8 @@ public class OrderCreatedConsumer : IConsumer<OrderCreated>
             // Store in Qdrant
             await _qdrantService.UpsertOrderAsync(message.OrderId, embedding, payload, context.CancellationToken);
 
-            // Analyze with LLM
-            var analysisPrompt = $"""
-                Analyze this new order and provide business insights:
-                
-                {orderText}
-                
-                Consider: customer value, product mix, shipping complexity, priority handling.
-                """;
-            
-            var analysis = await _ollamaService.GenerateCompletionAsync(analysisPrompt, context.CancellationToken);
-
-            _logger.LogInformation("Order {OrderId} processed and stored in RAG. Total: {GrandTotal} {Currency}. Analysis: {Analysis}", 
-                message.OrderId, order.GrandTotal, order.CurrencyCode, 
-                analysis.Substring(0, Math.Min(200, analysis.Length)));
+            _logger.LogInformation("Order {OrderId} processed and stored in RAG. Total: {GrandTotal} {Currency}",
+                message.OrderId, order.GrandTotal, order.CurrencyCode);
         }
         catch (Exception ex)
         {
