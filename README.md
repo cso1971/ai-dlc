@@ -179,13 +179,15 @@ dotnet run --project src/Services/Orchestrator.Api
 
 | Service | Swagger | API Base |
 |---------|---------|----------|
-| **Gateway (YARP)** | - | http://localhost:5000 (proxies to all APIs below) |
+| **Gateway (YARP)** | http://localhost:5000/swagger | http://localhost:5000 (proxies to all APIs below) |
 | Ordering API | http://localhost:5001/swagger | http://localhost:5001/api |
 | Invoicing API | http://localhost:5002/swagger | http://localhost:5002/api |
 | Customers API | http://localhost:5003/swagger | http://localhost:5003/api |
 | AI Processor | http://localhost:5010/swagger | http://localhost:5010/api |
 | **Orchestrator API** | http://localhost:5020/swagger | http://localhost:5020/api |
 | Angular Frontend | http://localhost:4200 | - |
+
+> **Tip:** La Swagger UI del Gateway (`localhost:5000/swagger`) aggrega tutte le API in un unico punto con un dropdown per selezionare il servizio.
 
 When using the Gateway, use **http://localhost:5000** as the API base: e.g. `GET http://localhost:5000/api/orders`, `GET http://localhost:5000/api/customers`, `POST http://localhost:5000/api/orchestrator/chat`, `POST http://localhost:5000/api/ai/chat`.
 

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 
@@ -32,7 +33,10 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateLifetime = true
         };
     });
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("Authenticated", p => p.RequireAuthenticatedUser());
+});
 
 // Add YARP reverse proxy from config (ReverseProxy section in appsettings)
 builder.Services.AddReverseProxy()
@@ -44,11 +48,42 @@ app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 
+// Swagger UI aggregating all backend services
+app.UseSwaggerUI(options =>
+{
+    options.SwaggerEndpoint("/ordering/swagger/v1/swagger.json", "Ordering API");
+    options.SwaggerEndpoint("/customers/swagger/v1/swagger.json", "Customers API");
+    options.SwaggerEndpoint("/ai/swagger/v1/swagger.json", "AI Processor API");
+    options.SwaggerEndpoint("/orchestrator/swagger/v1/swagger.json", "Orchestrator API");
+    options.RoutePrefix = "swagger";
+    options.DocumentTitle = "Distributed Playground - API Gateway";
+});
+
 // Health and info at root (no proxy, no auth required)
 app.MapGet("/", () => Results.Ok(new { Service = "Gateway", Status = "Running", Description = "YARP reverse proxy for Distributed Playground APIs" }));
 app.MapGet("/health", () => Results.Ok(new { Status = "Healthy" }));
 
-// Forward all other requests via YARP; require valid JWT
-app.MapReverseProxy().RequireAuthorization();
+// YARP: swagger routes are public, API routes require JWT
+app.MapReverseProxy(proxyPipeline =>
+{
+    proxyPipeline.Use(async (context, next) =>
+    {
+        var route = context.GetReverseProxyFeature().Route;
+        var isPublic = route.Config.Metadata?.ContainsKey("Public") == true;
+
+        if (!isPublic)
+        {
+            var authResult = await context.AuthenticateAsync(JwtBearerDefaults.AuthenticationScheme);
+            if (!authResult.Succeeded)
+            {
+                context.Response.StatusCode = 401;
+                return;
+            }
+            context.User = authResult.Principal!;
+        }
+
+        await next();
+    });
+});
 
 app.Run();
