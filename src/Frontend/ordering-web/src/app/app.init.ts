@@ -28,7 +28,19 @@ export function initializeKeycloak(keycloak: KeycloakService) {
         loadUserProfileAtStartUp: false
       })
       .catch((err: unknown) => {
-        console.error('Keycloak init failed', err ?? '(no error object)');
-        return Promise.reject(err instanceof Error ? err : new Error(String(err ?? 'Keycloak init failed')));
+        // Log full details: token exchange can succeed (200) but post-processing may throw without a proper Error
+        const msg = err instanceof Error ? err.message : String(err ?? '(no error object)');
+        const stack = err instanceof Error ? err.stack : undefined;
+        console.error('Keycloak init failed', msg, stack ?? err);
+        // If token was already set before the throw (e.g. URL cleanup failed), allow app to bootstrap
+        try {
+          if (keycloak.isLoggedIn()) {
+            console.warn('Keycloak init reported failure but user is logged in; continuing bootstrap.');
+            return Promise.resolve(true);
+          }
+        } catch {
+          // ignore
+        }
+        return Promise.reject(err instanceof Error ? err : new Error(msg));
       });
 }
