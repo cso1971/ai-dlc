@@ -5,6 +5,7 @@ export const environment = {
   customersApiUrl: 'http://localhost:5000',
   aiApiUrl: 'http://localhost:5000',
   orchestratorApiUrl: 'http://localhost:5000',
+  /** Keycloak: use realm "playground" (must match Keycloak server realm name). */
   keycloak: {
     url: 'http://localhost:8180/',
     realm: 'playground',
