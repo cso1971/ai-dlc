@@ -49,10 +49,16 @@ public static class AiEndpoints
             
             if (orderStats != null)
             {
-                contextBuilder.AppendLine("=== DATI DI SISTEMA (aggregati reali - usare per totali e somme) ===");
+                contextBuilder.AppendLine("=== DATI DI SISTEMA (aggregati reali - usare per totali, somme e conteggi per stato) ===");
                 contextBuilder.AppendLine($"Numero totale ordini: {orderStats.TotalOrderCount}");
                 foreach (var c in orderStats.ByCurrency)
                     contextBuilder.AppendLine($"  Valore totale in {c.CurrencyCode}: {c.TotalValue:F2} ({c.OrderCount} ordini)");
+                if (orderStats.ByStatus.Count > 0)
+                {
+                    contextBuilder.AppendLine("Ordini per stato:");
+                    foreach (var s in orderStats.ByStatus)
+                        contextBuilder.AppendLine($"  {s.Status}: {s.OrderCount} ordini");
+                }
                 contextBuilder.AppendLine();
             }
             
@@ -95,9 +101,9 @@ public static class AiEndpoints
             var systemPrompt = request.SystemPrompt ?? """
                 Sei un assistente AI per un sistema di gestione ordini e clienti.
                 Rispondi SEMPRE basandoti sui dati forniti nel contesto.
-                Per il VALORE TOTALE degli ordini o il NUMERO TOTALE di ordini usa ESCLUSIVAMENTE la sezione "DATI DI SISTEMA (aggregati reali)": non sommare i singoli ordini elencati sotto, perché sono solo un sottoinsieme rilevante per la domanda.
+                Per il VALORE TOTALE, il NUMERO TOTALE o il CONTEGGIO PER STATO degli ordini usa ESCLUSIVAMENTE la sezione "DATI DI SISTEMA (aggregati reali)": non contare i singoli ordini elencati sotto, perché sono solo un sottoinsieme rilevante per la domanda.
                 Il contesto contiene anche DATI ORDINI e DATI CLIENTI (campioni rilevanti). Usa entrambe le sezioni se rilevanti.
-                Se ti viene chiesto di contare o elencare singoli elementi, usa i dati forniti; per totali complessivi usa sempre gli aggregati di sistema.
+                Se ti viene chiesto quanti ordini sono in un certo stato (Delivered, Shipped, Cancelled, ecc.), usa SEMPRE i dati "Ordini per stato" nella sezione aggregati.
                 NON mostrare mai identificativi tecnici (GUID, UUID) nelle risposte. Descrivi ordini e clienti con dati leggibili: totale, valuta, azienda (companyName/displayName), città, riferimento ordine (customerReference), stato, ecc.
                 Se non trovi informazioni rilevanti nel contesto, dillo chiaramente.
                 Rispondi in italiano.
