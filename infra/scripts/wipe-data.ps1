@@ -1,10 +1,10 @@
-# Wipe all orders and customers from PostgreSQL, and all data from Qdrant.
-# Run from repo root. Requires: Docker with playground-postgres and playground-qdrant running.
+# Wipe all orders and customers from PostgreSQL, Qdrant collections, and Redis projections.
+# Run from repo root. Requires: Docker with playground-postgres, playground-qdrant and playground-redis running.
 # Usage: .\infra\scripts\wipe-data.ps1
 
 $ErrorActionPreference = "Stop"
 
-Write-Host "=== Wipe data (PostgreSQL + Qdrant) ===" -ForegroundColor Cyan
+Write-Host "=== Wipe data (PostgreSQL + Qdrant + Redis) ===" -ForegroundColor Cyan
 
 # --- PostgreSQL ---
 Write-Host "`nPostgreSQL: deleting orders and customers..." -ForegroundColor Yellow
@@ -35,4 +35,21 @@ foreach ($coll in @("orders", "customers")) {
         }
     }
 }
-Write-Host "`nDone. PostgreSQL and Qdrant data wiped." -ForegroundColor Cyan
+# --- Redis ---
+Write-Host "`nRedis: flushing projection keys..." -ForegroundColor Yellow
+$redisResult = docker exec playground-redis redis-cli --scan --pattern "projections:*" 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "  Redis not reachable. Is playground-redis running? (docker ps)" -ForegroundColor Red
+} else {
+    $keys = $redisResult -split "`n" | Where-Object { $_ -ne "" }
+    if ($keys.Count -gt 0) {
+        foreach ($key in $keys) {
+            docker exec playground-redis redis-cli DEL $key | Out-Null
+        }
+        Write-Host "  Deleted $($keys.Count) projection keys." -ForegroundColor Green
+    } else {
+        Write-Host "  No projection keys found (skip)." -ForegroundColor Gray
+    }
+}
+
+Write-Host "`nDone. PostgreSQL, Qdrant and Redis data wiped." -ForegroundColor Cyan

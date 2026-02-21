@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Wipe all orders and customers from PostgreSQL, and all data from Qdrant.
-# Run from repo root. Requires: Docker with playground-postgres and playground-qdrant running.
+# Wipe all orders and customers from PostgreSQL, Qdrant collections, and Redis projections.
+# Run from repo root. Requires: Docker with playground-postgres, playground-qdrant and playground-redis running.
 # Usage: ./infra/scripts/wipe-data.sh
 
 set -e
 
-echo "=== Wipe data (PostgreSQL + Qdrant) ==="
+echo "=== Wipe data (PostgreSQL + Qdrant + Redis) ==="
 
 # --- PostgreSQL ---
 echo ""
@@ -27,5 +27,20 @@ for coll in orders customers; do
     echo "  Collection $coll did not exist or error (skip)."
   fi
 done
+# --- Redis ---
 echo ""
-echo "Done. PostgreSQL and Qdrant data wiped."
+echo "Redis: flushing projection keys..."
+KEYS=$(docker exec playground-redis redis-cli --scan --pattern "projections:*" 2>/dev/null || true)
+if [ -z "$KEYS" ]; then
+  echo "  No projection keys found (skip)."
+else
+  COUNT=0
+  for key in $KEYS; do
+    docker exec playground-redis redis-cli DEL "$key" > /dev/null
+    COUNT=$((COUNT + 1))
+  done
+  echo "  Deleted $COUNT projection keys."
+fi
+
+echo ""
+echo "Done. PostgreSQL, Qdrant and Redis data wiped."
