@@ -39,7 +39,7 @@
 
 ### Frontend
 - **Angular 17** su porta 4200
-- **Auth (Step 4):** Login con **Authorization Code + PKCE** (nessun flusso implicito). keycloak-angular + keycloak-js; init con `flow: 'standard'`, `pkceMethod: 'S256'`. Guard reindirizza a Keycloak se non autenticato; Bearer inviato al Gateway; Logout in navbar. Client Keycloak `ordering-web` (pubblico). Usare **http://localhost:4200** (non 127.0.0.1).
+- **Auth (Step 4):** Login con **Authorization Code + PKCE** (nessun flusso implicito). keycloak-angular + keycloak-js; init con `flow: 'standard'`, `pkceMethod: 'S256'`, `onLoad: 'login-required'`. Guard reindirizza a Keycloak se non autenticato; Bearer inviato al Gateway; Logout in navbar. Client Keycloak `ordering-web` (pubblico). Usare **http://localhost:4200** (non 127.0.0.1).
 - Chiamate API tutte tramite **Gateway** (http://localhost:5000); environment con `apiUrl`, `keycloak` (url, realm, clientId).
 - Pagine: lista ordini, dettaglio, creazione, workflow actions (tutte protette da guard).
 - **AI Chat Assistant**: sempre visibile; selettore "Chat with: RAG | Semantic Kernel" per usare AI.Processor (RAG) o Orchestrator.Api (Semantic Kernel). Search e Analyze solo con RAG.
@@ -153,6 +153,11 @@
 **Problema**: `Cannot resolve 'Orchestrator.Api.Plugins.MassTransitCommandsPlugin' from root provider because it requires scoped service 'MassTransit.ISendEndpointProvider'.`
 **Causa**: Il Kernel è registrato come singleton e alla costruzione risolve i plugin dal root provider; `ISendEndpointProvider` in MassTransit è scoped, quindi non risolvibile dal root.
 **Soluzione**: In `MassTransitCommandsPlugin` usare **IBus** invece di `ISendEndpointProvider`. `IBus` è singleton e espone `GetSendEndpoint`, così il plugin può essere risolto quando si costruisce il Kernel.
+
+### Keycloak init failed (nonce mismatch) – pagina bianca dopo login
+**Problema**: Dopo login Keycloak, il token exchange (`/token`) restituiva 200 ma `keycloak.init()` rigettava con `undefined`, causando pagina bianca. Nessun Error object nel reject.
+**Causa**: `onLoad: 'check-sso'` lancia un silent iframe login (`prompt=none`) che genera un nuovo nonce e lo salva in `sessionStorage`, sovrascrivendo il nonce del login principale. Quando il code exchange ritorna il token, il nonce nel token non corrisponde più al nonce in storage → `keycloak-js` chiama `promise.setError()` senza argomenti → reject con `undefined`.
+**Soluzione**: Cambiato `onLoad` da `'check-sso'` a `'login-required'` in `app.init.ts`. Questo evita il silent iframe e mantiene coerente il nonce tra redirect e code exchange. Semplificato anche il catch handler (rimosso workaround `isLoggedIn()`). Ripristinato `keycloak-js` a `^23.0.7` (il downgrade a 22.x era solo diagnostico).
 
 ### Chat Semantic Kernel non crea il cliente (risponde con JSON)
 **Problema**: Alla richiesta "crea un cliente Acme SPA" il chatbot rispondeva suggerendo un file JSON invece di eseguire la creazione; in un secondo caso restituiva il JSON della “chiamata” (name/parameters) senza eseguirla.
