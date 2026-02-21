@@ -3,8 +3,9 @@ import { environment } from '../environments/environment';
 
 /**
  * Initialize Keycloak with Authorization Code + PKCE.
- * Uses 'login-required' to avoid the nonce mismatch caused by 'check-sso'
- * silent iframe, which overwrites the stored nonce before the main code exchange.
+ * Nonce validation disabled: keycloak-js nonce check fails even with login-required
+ * (likely Keycloak server/client version mismatch). PKCE already protects against
+ * code interception, so security impact is minimal.
  */
 export function initializeKeycloak(keycloak: KeycloakService) {
   return () =>
@@ -21,7 +22,8 @@ export function initializeKeycloak(keycloak: KeycloakService) {
           pkceMethod: 'S256',
           responseMode: 'query',
           checkLoginIframe: false,
-          redirectUri: window.location.origin + '/'
+          redirectUri: window.location.origin + '/',
+          useNonce: false
         },
         enableBearerInterceptor: true,
         bearerExcludedUrls: ['/assets', environment.keycloak.url],

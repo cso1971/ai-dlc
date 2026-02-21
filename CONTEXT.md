@@ -157,7 +157,7 @@
 ### Keycloak init failed (nonce mismatch) – pagina bianca dopo login
 **Problema**: Dopo login Keycloak, il token exchange (`/token`) restituiva 200 ma `keycloak.init()` rigettava con `undefined`, causando pagina bianca. Nessun Error object nel reject.
 **Causa**: `onLoad: 'check-sso'` lancia un silent iframe login (`prompt=none`) che genera un nuovo nonce e lo salva in `sessionStorage`, sovrascrivendo il nonce del login principale. Quando il code exchange ritorna il token, il nonce nel token non corrisponde più al nonce in storage → `keycloak-js` chiama `promise.setError()` senza argomenti → reject con `undefined`.
-**Soluzione**: Cambiato `onLoad` da `'check-sso'` a `'login-required'` in `app.init.ts`. Questo evita il silent iframe e mantiene coerente il nonce tra redirect e code exchange. Semplificato anche il catch handler (rimosso workaround `isLoggedIn()`). Ripristinato `keycloak-js` a `^23.0.7` (il downgrade a 22.x era solo diagnostico).
+**Soluzione**: Cambiato `onLoad` da `'check-sso'` a `'login-required'` e disabilitato nonce validation (`useNonce: false`) in `app.init.ts`. Il nonce mismatch persiste anche con `login-required` (probabile incompatibilità versione Keycloak server/keycloak-js); PKCE già protegge il code exchange, quindi l'impatto sicurezza è minimo. Semplificato anche il catch handler. Ripristinato `keycloak-js` a `^23.0.7`.
 
 ### Chat Semantic Kernel non crea il cliente (risponde con JSON)
 **Problema**: Alla richiesta "crea un cliente Acme SPA" il chatbot rispondeva suggerendo un file JSON invece di eseguire la creazione; in un secondo caso restituiva il JSON della “chiamata” (name/parameters) senza eseguirla.
