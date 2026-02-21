@@ -59,6 +59,8 @@ docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile infra u
 
 Chi non ha GPU NVIDIA usi solo il comando standard sopra (senza `-f docker-compose.gpu.yml`).
 
+**Tuning risorse Ollama (senza GPU):** il container Ollama è configurato con limiti di 8 CPU e 8 GB RAM per evitare che saturi il sistema durante l'inferenza. Le variabili `OLLAMA_NUM_PARALLEL=1` e `OLLAMA_MAX_LOADED_MODELS=1` limitano il parallelismo. Per dare più risorse, modifica `deploy.resources.limits` in `docker-compose.yml`. Per allocare più risorse a Docker Desktop: Settings → Resources → aumenta CPU e Memory.
+
 ### 2. Initialize Ollama Models
 
 ```powershell

@@ -10,7 +10,11 @@ services:
   ollama:
     deploy:
       resources:
+        limits:
+          cpus: "16"
+          memory: 16G
         reservations:
+          memory: 4G
           devices:
             - driver: nvidia
               count: all

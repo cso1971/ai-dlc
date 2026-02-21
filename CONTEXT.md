@@ -144,10 +144,14 @@
 **Causa verificata**: Non timeout, ma **Qdrant RpcException "Collection already exists"** – race tra consumer: il primo crea la collection `orders`, i successivi chiamano CreateCollection e ricevono AlreadyExists, eccezione → fault queue.
 **Soluzione**: In `QdrantService.EnsureCollectionExistsAsync` gestire l’eccezione quando il messaggio contiene "AlreadyExists" / "already exists" (trattare come successo e uscire). Alternativa per riprocessare: usare RabbitMQ Management API per spostare messaggi dalla coda errori alla coda principale.
 
-### Ollama sovraccarico (978% CPU)
-**Problema**: Troppe richieste parallele saturavano Ollama.
-**Causa**: Analisi AI sincrona per ogni ordine (~40 sec ciascuna).
-**Mitigazione**: Timeout esteso, ma potrebbe servire rimuovere analisi AI o usare modello più leggero.
+### Ollama sovraccarico (978–1900% CPU)
+**Problema**: Troppe richieste parallele o singola inferenza LLM saturano tutti i core CPU.
+**Causa**: Senza GPU, l'inferenza llama3.2 usa tutti i thread CPU disponibili.
+**Soluzioni applicate**:
+- `OLLAMA_NUM_PARALLEL=1` e `OLLAMA_MAX_LOADED_MODELS=1` per evitare richieste parallele
+- `OLLAMA_FLASH_ATTENTION=1` per ottimizzare l'uso memoria durante inferenza
+- Limiti risorse Docker: `cpus: 8`, `memory: 8G` (modificabili in docker-compose.yml)
+- **Raccomandazione**: abilitare GPU NVIDIA con `docker-compose.gpu.yml` per ridurre CPU al minimo e velocizzare di 10-20x
 
 ### Cannot resolve MassTransitCommandsPlugin (ISendEndpointProvider scoped)
 **Problema**: `Cannot resolve 'Orchestrator.Api.Plugins.MassTransitCommandsPlugin' from root provider because it requires scoped service 'MassTransit.ISendEndpointProvider'.`
