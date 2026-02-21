@@ -98,7 +98,47 @@ With infrastructure running, from repo root:
 
 This deletes all rows in `ordering.order_lines`, `ordering.orders`, and `customers.customers`, and removes Qdrant collections `orders` and `customers`. AI.Processor will recreate the collections when new events arrive.
 
-### 4. Run .NET Services Locally (Development)
+### 4. Create Keycloak user
+
+After infrastructure is up, create a test user in the `playground` realm to log into the frontend.
+
+**Option A — Keycloak Admin Console (UI):**
+
+1. Open http://localhost:8180/admin — login: `admin` / `admin`
+2. Select realm **playground** (top-left dropdown)
+3. **Users → Add user** — Username: `user1`, Email: `user1@test.com`, First name: `Test`, Last name: `User` → **Create**
+4. Open the new user → **Credentials** tab → **Set password**: `user1`, Temporary = **OFF** → **Save**
+
+**Option B — PowerShell (automated):**
+
+```powershell
+# Get admin token
+$token = (Invoke-RestMethod -Uri "http://localhost:8180/realms/master/protocol/openid-connect/token" `
+    -Method Post -ContentType "application/x-www-form-urlencoded" `
+    -Body "grant_type=password&client_id=admin-cli&username=admin&password=admin").access_token
+
+# Create user
+Invoke-RestMethod -Uri "http://localhost:8180/admin/realms/playground/users" `
+    -Method Post -ContentType "application/json" `
+    -Headers @{ Authorization = "Bearer $token" } `
+    -Body '{"username":"user1","email":"user1@test.com","firstName":"Test","lastName":"User","enabled":true,"credentials":[{"type":"password","value":"user1","temporary":false}]}'
+```
+
+**Option B — Bash (automated):**
+
+```bash
+# Get admin token
+TOKEN=$(curl -s -X POST "http://localhost:8180/realms/master/protocol/openid-connect/token" \
+  -d "grant_type=password&client_id=admin-cli&username=admin&password=admin" | jq -r '.access_token')
+
+# Create user
+curl -s -X POST "http://localhost:8180/admin/realms/playground/users" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"username":"user1","email":"user1@test.com","firstName":"Test","lastName":"User","enabled":true,"credentials":[{"type":"password","value":"user1","temporary":false}]}'
+```
+
+### 5. Run .NET Services Locally (Development)
 
 You can run the **Gateway** first so the frontend uses a single base URL (`http://localhost:5000`), or call each API directly.
 

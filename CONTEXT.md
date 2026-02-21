@@ -229,14 +229,16 @@ cd infra && docker-compose up -d
 #   Bash:      cat infra/scripts/create-ordering-schema.sql | docker exec -i playground-postgres psql -U playground -d playground_db
 # Alternativa: dotnet ef database update --project src/Services/Ordering.Api
 
-# 5. Avvia servizi
+# 5. Crea utente Keycloak (user1 / user1) — vedi README.md step 4 per dettagli
+
+# 6. Avvia servizi
 dotnet run --project src/Services/Ordering.Api --urls "http://localhost:5001"
 dotnet run --project src/Services/AI.Processor --urls "http://localhost:5010"
 
-# 6. Avvia frontend
+# 7. Avvia frontend
 cd src/Frontend/ordering-web && npm install && npm start
 
-# 7. Genera ordini di test
+# 8. Genera ordini di test
 dotnet run --project src/Tools/OrderSimulator -- -n 20 -w false
 ```
 
