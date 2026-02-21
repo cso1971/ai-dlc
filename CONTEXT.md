@@ -26,6 +26,7 @@
 | **Customers.Api** | 5003 | Clienti: CRUD (create, get, update, cancel soft-delete), REST + MassTransit, EF schema `customers` |
 | **AI.Processor** | 5010 | Elaborazione AI, RAG, embedding, chat |
 | **Orchestrator.Api** | 5020 | Semantic Kernel + Ollama: REST chat, MassTransit trigger, plugin HTTP e comandi |
+| **Projections** | 5030 | CQRS read model: consumer MassTransit proiettano eventi ordine su Redis; endpoint `/api/projections/stats` e `/api/projections/flush` |
 
 ### Infrastruttura (Docker)
 | Container | Porta | Uso |
@@ -119,7 +120,15 @@
 - **Chat**: uso di **PromptExecutionSettings** con **FunctionChoiceBehavior.Auto()** per abilitare l’auto-invocazione delle funzioni; **system prompt** che istruisce il modello a usare i plugin (es. SendCreateCustomer quando l’utente chiede di creare un cliente) e a non suggerire JSON o altri metodi.
 - Il kernel può quindi sia leggere dati (ordini, clienti) sia inviare comandi (es. crea ordine, crea cliente) in base al prompt.
 
-### 6. **Embedding vs Analisi AI**
+### 7. **CQRS Projections su Redis**
+- Servizio dedicato `Projections` (porta 5030) consuma eventi ordine via MassTransit e proietta aggregazioni su Redis (contatori atomici INCR/DECR)
+- Chiavi Redis: `projections:orders:total`, `projections:orders:by-status:{status}`, `projections:orders:by-currency:{code}:count/value`, `projections:orders:last-updated`
+- Endpoint REST: `GET /api/projections/stats` (lettura read model), `POST /api/projections/flush` (reset proiezioni)
+- Consumer implementato: `OrderCreatedProjectionConsumer` (incrementa totale, by-status Created, by-currency)
+- Prossimi consumer: `OrderStatusChangedProjectionConsumer`, `OrderCancelledProjectionConsumer`, etc. per aggiornare i contatori sulle transizioni di stato
+- Obiettivo: sostituire la query SQL on-demand di OrderStats nel RAG con lettura diretta da Redis (<1ms vs ~50-100ms)
+
+### 8. **Embedding vs Analisi AI**
 - **Embedding** (nomic-embed-text): ~200ms, necessario per RAG
 - **Analisi AI** (llama3.2): ~40 sec, opzionale, può causare timeout
 

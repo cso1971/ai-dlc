@@ -6,20 +6,20 @@ A .NET distributed system playground for AI exploration with multiple bounded co
 
 ```
                     ┌─────────────────────────────────────┐
-                    │         Gateway (YARP) :5000          │
-                    │   Single entry for all REST APIs     │
+                    │         Gateway (YARP) :5000        │
+                    │   Single entry for all REST APIs    │
                     └─────────────────────┬───────────────┘
                                           │
-┌─────────────────────────────────────────┼─────────────────────────────────────┐
-│                    INFRASTRUCTURE        │                                      │
+┌─────────────────────────────────────────┼──────────────────────────────────────┐
+│                    INFRASTRUCTURE       │                                      │
 ├───────────────┬─────────────┬───────────┼───────────┬─────────────┬────────────┤
-│   PostgreSQL  │  RabbitMQ   │  Qdrant   │  Ollama   │   Jaeger    │   Redis     │
-│   :5432       │ :5672/15672 │ :6333/6334│  :11434   │   :16686    │   :6379     │
+│   PostgreSQL  │  RabbitMQ   │  Qdrant   │  Ollama   │   Jaeger    │   Redis    │
+│   :5432       │ :5672/15672 │ :6333/6334│  :11434   │   :16686    │   :6379    │
 └───────────────┴─────────────┴───────────┴───────────┴─────────────┴────────────┘
-         │              │              │         │
+         │              │              │        │
 ┌────────▼────┐  ┌──────▼──────┐  ┌────▼─────┐  │     ┌──────────────────────────┐
-│ Ordering API│  │ Invoicing API│  │Customers │  │     │ AI.Processor  Orchestrator│
-│   :5001     │  │   :5002     │  │  :5003   │  └────▶│   :5010         :5020     │
+│ Ordering API│  │Invoicing API│  │Customers │  │     │AI.Processor  Orchestrator│
+│   :5001     │  │   :5002     │  │  :5003   │  └───▶│   :5010         :5020     │
 └─────────────┘  └─────────────┘  └──────────┘        └──────────────────────────┘
 ```
 
@@ -162,6 +162,9 @@ dotnet run --project src/Services/Customers.Api
 
 # Terminal 6 - Orchestrator API (Semantic Kernel)
 dotnet run --project src/Services/Orchestrator.Api
+
+# Terminal 7 - Projections (CQRS read model on Redis)
+dotnet run --project src/Services/Projections
 ```
 
 ## Infrastructure URLs
@@ -186,6 +189,7 @@ dotnet run --project src/Services/Orchestrator.Api
 | Customers API | http://localhost:5003/swagger | http://localhost:5003/api |
 | AI Processor | http://localhost:5010/swagger | http://localhost:5010/api |
 | **Orchestrator API** | http://localhost:5020/swagger | http://localhost:5020/api |
+| **Projections** | - | http://localhost:5030/api |
 | Angular Frontend | http://localhost:4200 | - |
 
 > **Tip:** La Swagger UI del Gateway (`localhost:5000/swagger`) aggrega tutte le API in un unico punto con un dropdown per selezionare il servizio.
@@ -517,7 +521,8 @@ DistributedPlayground/
 │   │   │   │   └── OrderCompletedConsumer.cs
 │   │   │   └── Program.cs
 │   │   ├── Invoicing.Api/
-│   │   └── Customers.Api/
+│   │   ├── Customers.Api/
+│   │   └── Projections/         # CQRS read model (Redis projections)
 │   ├── Tools/
 │   │   └── OrderSimulator/      # CLI tool for test data generation
 │   └── Shared/
@@ -638,8 +643,9 @@ Click the 🤖 button to open/close the panel. Use "Chat with: RAG" or "Chat wit
 | **Jaeger** | Trace visualization |
 | **Swashbuckle** | OpenAPI/Swagger |
 | **Qdrant** | Vector database for AI/RAG |
-| **Redis** | Cache, CQRS projections read model |
+| **Redis 7** | CQRS projections read model (atomic counters) |
 | **Ollama** | Local LLM |
+| **StackExchange.Redis** | Redis client for .NET |
 
 ## Contracts (MassTransit Messages)
 
