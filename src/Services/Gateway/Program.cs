@@ -1,10 +1,15 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var authConfig = builder.Configuration.GetSection("Authentication");
+var configuration = builder.Configuration;
+var serviceName = configuration["OpenTelemetry:ServiceName"] ?? "Gateway";
+
+var authConfig = configuration.GetSection("Authentication");
 var authority = authConfig["Authority"];
 var requireHttpsMetadata = authConfig.GetValue<bool>("RequireHttpsMetadata");
 
@@ -40,7 +45,21 @@ builder.Services.AddAuthorization(options =>
 
 // Add YARP reverse proxy from config (ReverseProxy section in appsettings)
 builder.Services.AddReverseProxy()
-    .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
+    .LoadFromConfig(configuration.GetSection("ReverseProxy"));
+
+// OpenTelemetry distributed tracing → Jaeger
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(resource => resource.AddService(serviceName))
+    .WithTracing(tracing =>
+    {
+        tracing
+            .AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation()
+            .AddOtlpExporter(options =>
+            {
+                options.Endpoint = new Uri(configuration["OpenTelemetry:Endpoint"] ?? "http://localhost:4317");
+            });
+    });
 
 var app = builder.Build();
 

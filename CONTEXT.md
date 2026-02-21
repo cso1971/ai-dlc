@@ -20,7 +20,7 @@
 ### Bounded Contexts
 | Servizio | Porta | Descrizione |
 |----------|-------|-------------|
-| **Gateway** | 5000 | API Gateway (YARP); validazione JWT Keycloak (Step 2); CORS per :4200; `/` e `/health` pubblici, route proxy richiedono Bearer (audience `playground-api`, `ordering-web`, `account`); **Swagger UI aggregata** su `/swagger` (dropdown per tutti i servizi, route pubbliche via YARP con metadata `Public`) |
+| **Gateway** | 5000 | API Gateway (YARP); validazione JWT Keycloak (Step 2); CORS per :4200; `/` e `/health` pubblici, route proxy richiedono Bearer (audience `playground-api`, `ordering-web`, `account`); **Swagger UI aggregata** su `/swagger` (dropdown per tutti i servizi, route pubbliche via YARP con metadata `Public`); **OpenTelemetry** tracing verso Jaeger (ASP.NET Core + HttpClient instrumentation) |
 | **Ordering.Api** | 5001 | Gestione ordini, aggregato Order, REST + MassTransit |
 | **Invoicing.Api** | 5002 | Fatturazione (placeholder) |
 | **Customers.Api** | 5003 | Clienti: CRUD (create, get, update, cancel soft-delete), REST + MassTransit, EF schema `customers` |
