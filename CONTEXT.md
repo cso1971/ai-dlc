@@ -126,6 +126,7 @@
 - Endpoint REST: `GET /api/projections/stats` (tutte le dimensioni), `GET /api/projections/stats/{dimension}`, `POST /api/projections/flush` (reset proiezioni)
 - Gateway YARP route: `/api/projections/*` → projections-cluster (porta 5030)
 - **Frontend**: pagina Projections Dashboard (`/projections`) nel frontend Angular — mostra summary cards (total orders, last updated, active dimensions) e breakdown per dimensione con count, subtotal, grandTotal e barra distribuzione. Auto-refresh ogni 10s
+- **Integrazione RAG**: `AI.Processor` chiama `GET /api/projections/stats` in parallelo all'embedding e alla ricerca Qdrant. I dati aggregati vengono formattati in testo italiano semanticamente stabile (frasi chiare per ogni dimensione) e inclusi nel contesto RAG come "STATISTICHE E PROIEZIONI ORDINI". Se il servizio Projections non è disponibile, fallback sulle SQL stats di `Ordering.Api`. Il system prompt istruisce il LLM a usare le proiezioni per tutte le domande su totali, conteggi e distribuzioni.
 
 ### 8. **Embedding vs Analisi AI**
 - **Embedding** (nomic-embed-text): ~200ms, necessario per RAG

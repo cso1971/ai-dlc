@@ -442,7 +442,7 @@ curl -X POST http://localhost:5010/api/ai/search \
 
 ### RAG Architecture
 
-**Chat RAG** (`POST /api/ai/chat`): the user's question is embedded, then **both** Qdrant collections are queried in parallel—**orders** and **customers**. The top similar orders and top similar customers are merged into a single context (sections "DATI ORDINI" and "DATI CLIENTI"), and Ollama answers based on that combined context. So the chatbot can answer questions about both orders and customers (e.g. "Which customers are in Italy?", "Orders for company X").
+**Chat RAG** (`POST /api/ai/chat`): the user's question is embedded, then three data sources are queried **in parallel**: (1) **Redis Projections** via the Projections service for real-time aggregated statistics (9 dimensions: status, currency, customer-ref, shipping-method, product, created/delivered month/year — each with count, subtotal, grandTotal), (2) **Qdrant orders** collection for semantically similar orders, (3) **Qdrant customers** collection for semantically similar customers. The projection data is formatted as semantically stable Italian text ("STATISTICHE E PROIEZIONI ORDINI") so the LLM can accurately answer aggregate questions (totals, counts, distributions). If the Projections service is unavailable, the system falls back to SQL stats from Ordering API. The system prompt instructs the LLM to always use projection data for aggregate questions and Qdrant results for specific order/customer details.
 
 When an event is received, AI.Processor:
 1. **Fetches complete order** from Ordering API via HTTP (`GET /api/orders/{id}`)
