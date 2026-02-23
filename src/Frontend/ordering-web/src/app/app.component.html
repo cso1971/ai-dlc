@@ -12,6 +12,8 @@
       <a routerLink="/orders/new" class="nav-link btn-new">+ New Order</a>
       <a routerLink="/customers" routerLinkActive="active" class="nav-link">Customers</a>
       <a routerLink="/customers/new" class="nav-link btn-new">+ New Customer</a>
+      <span class="nav-separator"></span>
+      <a routerLink="/projections" routerLinkActive="active" class="nav-link">Projections</a>
       <span class="nav-user" *ngIf="username">{{ username }}</span>
       <button type="button" class="nav-link btn-logout" (click)="logout()">Logout</button>
     </div>

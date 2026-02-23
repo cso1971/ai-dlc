@@ -32,5 +32,10 @@ export const routes: Routes = [
     path: 'customers/:id',
     loadComponent: () => import('./pages/customer-detail/customer-detail.component').then(m => m.CustomerDetailComponent),
     canActivate: [AppAuthGuard]
+  },
+  {
+    path: 'projections',
+    loadComponent: () => import('./pages/projections-dashboard/projections-dashboard.component').then(m => m.ProjectionsDashboardComponent),
+    canActivate: [AppAuthGuard]
   }
 ];
