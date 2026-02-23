@@ -121,12 +121,11 @@
 - Il kernel può quindi sia leggere dati (ordini, clienti) sia inviare comandi (es. crea ordine, crea cliente) in base al prompt.
 
 ### 7. **CQRS Projections su Redis**
-- Servizio dedicato `Projections` (porta 5030) consuma eventi ordine via MassTransit e proietta aggregazioni su Redis (contatori atomici INCR/DECR)
-- Chiavi Redis: `projections:orders:total`, `projections:orders:by-status:{status}`, `projections:orders:by-currency:{code}:count/value`, `projections:orders:last-updated`
-- Endpoint REST: `GET /api/projections/stats` (lettura read model), `POST /api/projections/flush` (reset proiezioni)
-- Consumer implementato: `OrderCreatedProjectionConsumer` (incrementa totale, by-status Created, by-currency)
-- Prossimi consumer: `OrderStatusChangedProjectionConsumer`, `OrderCancelledProjectionConsumer`, etc. per aggiornare i contatori sulle transizioni di stato
-- Obiettivo: sostituire la query SQL on-demand di OrderStats nel RAG con lettura diretta da Redis (<1ms vs ~50-100ms)
+- Servizio dedicato `Projections` (porta 5030) consuma tutti gli eventi ordine (Created, StatusChanged, Shipped, Delivered, Cancelled, Completed) via MassTransit e proietta aggregazioni su Redis (contatori atomici INCR/DECR)
+- Order snapshot salvati in Redis per lookup cross-evento; dimensioni aggregate: status, currency, customer-ref, shipping-method, created-month/year, delivered-month/year, product — ognuna con count, subtotal, grandTotal
+- Endpoint REST: `GET /api/projections/stats` (tutte le dimensioni), `GET /api/projections/stats/{dimension}`, `POST /api/projections/flush` (reset proiezioni)
+- Gateway YARP route: `/api/projections/*` → projections-cluster (porta 5030)
+- **Frontend**: pagina Projections Dashboard (`/projections`) nel frontend Angular — mostra summary cards (total orders, last updated, active dimensions) e breakdown per dimensione con count, subtotal, grandTotal e barra distribuzione. Auto-refresh ogni 10s
 
 ### 8. **Embedding vs Analisi AI**
 - **Embedding** (nomic-embed-text): ~200ms, necessario per RAG

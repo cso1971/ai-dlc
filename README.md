@@ -588,6 +588,7 @@ Angular 17 SPA for managing orders and customers.
 | Customer List | `/customers` | List all customers (Active / Cancelled) |
 | Customer Detail | `/customers/:id` | View customer, edit (partial update), or cancel (soft delete) |
 | Create Customer | `/customers/new` | Create a new customer with company, contact, and optional addresses |
+| Projections Dashboard | `/projections` | Real-time CQRS projections from Redis: summary cards, 9 dimension breakdowns (status, currency, customer-ref, shipping-method, created month/year, delivered month/year, product) with count, subtotal, grandTotal and distribution bars. Auto-refresh every 10s |
 
 ### Running the Frontend
 
