@@ -1,6 +1,9 @@
 using MassTransit;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using Polly;
+using Polly.Extensions.Http;
+using Projections.Clients;
 using Projections.Consumers;
 using Projections.Services;
 using StackExchange.Redis;
@@ -13,10 +16,21 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(
     ConnectionMultiplexer.Connect(redisConnectionString));
 builder.Services.AddSingleton<IRedisProjectionService, RedisProjectionService>();
 
+// ===== Order API Client with Polly =====
+builder.Services.AddHttpClient<IOrderApiClient, OrderApiClient>(client =>
+{
+    var baseUrl = builder.Configuration["OrderingApi:BaseUrl"] ?? "http://localhost:5001";
+    client.BaseAddress = new Uri(baseUrl);
+    client.DefaultRequestHeaders.Add("Accept", "application/json");
+})
+.AddPolicyHandler(HttpPolicyExtensions
+    .HandleTransientHttpError()
+    .WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt))));
+
 // ===== MassTransit with RabbitMQ =====
 builder.Services.AddMassTransit(x =>
 {
-    x.AddConsumer<OrderCreatedProjectionConsumer>();
+    x.AddConsumer<OrderProjectionConsumer>();
 
     x.SetKebabCaseEndpointNameFormatter();
 
@@ -65,22 +79,35 @@ app.MapHealthChecks("/health");
 
 app.MapGet("/", () => Results.Ok(new { service = "Projections", status = "running" }));
 
+var dimensions = new[] { "status", "currency", "customer-ref", "shipping-method", "created-month", "created-year", "delivered-month", "delivered-year", "product" };
+
 app.MapGet("/api/projections/stats", async (IRedisProjectionService projection, CancellationToken ct) =>
 {
     var total = await projection.GetOrderCountAsync(ct);
-    var byStatus = await projection.GetAllOrdersByStatusAsync(ct);
-    var byCurrency = await projection.GetAllOrdersByCurrencyAsync(ct);
     var lastUpdated = await projection.GetLastUpdatedAsync(ct);
 
-    return Results.Ok(new
+    var result = new Dictionary<string, object?>
     {
-        totalOrders = total,
-        byStatus,
-        byCurrency = byCurrency.ToDictionary(
-            kvp => kvp.Key,
-            kvp => new { count = kvp.Value.Count, totalValue = kvp.Value.TotalValue }),
-        lastUpdated
-    });
+        ["totalOrders"] = total,
+        ["lastUpdated"] = lastUpdated
+    };
+
+    foreach (var dim in dimensions)
+    {
+        var data = await projection.GetAllByDimensionAsync(dim, ct);
+        result[dim] = data;
+    }
+
+    return Results.Ok(result);
+});
+
+app.MapGet("/api/projections/stats/{dimension}", async (string dimension, IRedisProjectionService projection, CancellationToken ct) =>
+{
+    if (!dimensions.Contains(dimension))
+        return Results.NotFound(new { error = $"Unknown dimension: {dimension}", available = dimensions });
+
+    var data = await projection.GetAllByDimensionAsync(dimension, ct);
+    return Results.Ok(data);
 });
 
 app.MapPost("/api/projections/flush", async (IRedisProjectionService projection, CancellationToken ct) =>
@@ -94,7 +121,9 @@ var logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Pro
 logger.LogInformation("Projections service starting on port {Port}...",
     builder.Configuration["ASPNETCORE_URLS"] ?? "http://localhost:5030");
 logger.LogInformation("Redis: {Redis}", redisConnectionString);
+logger.LogInformation("OrderingApi: {BaseUrl}", builder.Configuration["OrderingApi:BaseUrl"] ?? "http://localhost:5001");
 logger.LogInformation("RabbitMQ: {Host}", builder.Configuration["RabbitMQ:Host"]);
 logger.LogInformation("OpenTelemetry: {ServiceName} -> {Endpoint}", serviceName, otelEndpoint);
+logger.LogInformation("Projection dimensions: {Dimensions}", string.Join(", ", dimensions));
 
 app.Run();

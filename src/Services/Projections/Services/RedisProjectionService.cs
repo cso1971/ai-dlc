@@ -1,3 +1,4 @@
+using System.Text.Json;
 using StackExchange.Redis;
 
 namespace Projections.Services;
@@ -9,8 +10,8 @@ public class RedisProjectionService : IRedisProjectionService
 
     private const string Prefix = "projections:orders";
     private const string TotalKey = $"{Prefix}:total";
-    private const string StatusPrefix = $"{Prefix}:by-status";
-    private const string CurrencyPrefix = $"{Prefix}:by-currency";
+    private const string SnapshotPrefix = $"{Prefix}:snapshot";
+    private const string DimPrefix = $"{Prefix}:dim";
     private const string LastUpdatedKey = $"{Prefix}:last-updated";
 
     public RedisProjectionService(IConnectionMultiplexer redis, ILogger<RedisProjectionService> logger)
@@ -21,28 +22,97 @@ public class RedisProjectionService : IRedisProjectionService
 
     private IDatabase Db => _redis.GetDatabase();
 
-    public async Task IncrementOrderCountAsync(CancellationToken ct = default)
+    // ========== Snapshot ==========
+
+    public async Task SaveOrderSnapshotAsync(Guid orderId, OrderSnapshot snapshot, CancellationToken ct = default)
     {
-        await Db.StringIncrementAsync(TotalKey);
+        var json = JsonSerializer.Serialize(snapshot);
+        await Db.StringSetAsync($"{SnapshotPrefix}:{orderId}", json);
     }
 
-    public async Task IncrementOrdersByStatusAsync(string status, CancellationToken ct = default)
+    public async Task<OrderSnapshot?> GetOrderSnapshotAsync(Guid orderId, CancellationToken ct = default)
     {
-        await Db.StringIncrementAsync($"{StatusPrefix}:{status}");
+        var val = await Db.StringGetAsync($"{SnapshotPrefix}:{orderId}");
+        if (!val.HasValue) return null;
+        return JsonSerializer.Deserialize<OrderSnapshot>(val.ToString());
     }
 
-    public async Task IncrementOrdersByCurrencyAsync(string currencyCode, decimal amount, CancellationToken ct = default)
+    public async Task UpdateSnapshotStatusAsync(Guid orderId, string newStatus, CancellationToken ct = default)
     {
+        var snapshot = await GetOrderSnapshotAsync(orderId, ct);
+        if (snapshot == null) return;
+        var updated = snapshot with { Status = newStatus };
+        await SaveOrderSnapshotAsync(orderId, updated, ct);
+    }
+
+    public async Task UpdateSnapshotDeliveredAtAsync(Guid orderId, DateTime deliveredAt, CancellationToken ct = default)
+    {
+        var snapshot = await GetOrderSnapshotAsync(orderId, ct);
+        if (snapshot == null) return;
+        var updated = snapshot with
+        {
+            DeliveredAtMonth = deliveredAt.ToString("yyyy-MM"),
+            DeliveredAtYear = deliveredAt.ToString("yyyy")
+        };
+        await SaveOrderSnapshotAsync(orderId, updated, ct);
+    }
+
+    // ========== Dimension Aggregation ==========
+
+    public async Task IncrementDimensionAsync(string dimension, string key, decimal subtotal, decimal grandTotal, CancellationToken ct = default)
+    {
+        var prefix = $"{DimPrefix}:{dimension}:{SanitizeKey(key)}";
         var batch = Db.CreateBatch();
-        _ = batch.StringIncrementAsync($"{CurrencyPrefix}:{currencyCode}:count");
-        _ = batch.StringIncrementAsync($"{CurrencyPrefix}:{currencyCode}:value", (long)(amount * 100));
+        _ = batch.StringIncrementAsync($"{prefix}:count");
+        _ = batch.StringIncrementAsync($"{prefix}:subtotal", (long)(subtotal * 100));
+        _ = batch.StringIncrementAsync($"{prefix}:grandtotal", (long)(grandTotal * 100));
         batch.Execute();
         await Task.CompletedTask;
     }
 
-    public async Task SetLastUpdatedAsync(CancellationToken ct = default)
+    public async Task DecrementDimensionAsync(string dimension, string key, decimal subtotal, decimal grandTotal, CancellationToken ct = default)
     {
-        await Db.StringSetAsync(LastUpdatedKey, DateTimeOffset.UtcNow.ToString("O"));
+        var prefix = $"{DimPrefix}:{dimension}:{SanitizeKey(key)}";
+        var batch = Db.CreateBatch();
+        _ = batch.StringDecrementAsync($"{prefix}:count");
+        _ = batch.StringDecrementAsync($"{prefix}:subtotal", (long)(subtotal * 100));
+        _ = batch.StringDecrementAsync($"{prefix}:grandtotal", (long)(grandTotal * 100));
+        batch.Execute();
+        await Task.CompletedTask;
+    }
+
+    public async Task<Dictionary<string, DimensionStats>> GetAllByDimensionAsync(string dimension, CancellationToken ct = default)
+    {
+        var server = _redis.GetServer(_redis.GetEndPoints().First());
+        var result = new Dictionary<string, DimensionStats>();
+        var pattern = $"{DimPrefix}:{dimension}:*:count";
+
+        await foreach (var key in server.KeysAsync(pattern: pattern))
+        {
+            var dimKey = key.ToString()
+                .Replace($"{DimPrefix}:{dimension}:", "")
+                .Replace(":count", "");
+
+            var countVal = await Db.StringGetAsync($"{DimPrefix}:{dimension}:{dimKey}:count");
+            var subVal = await Db.StringGetAsync($"{DimPrefix}:{dimension}:{dimKey}:subtotal");
+            var grandVal = await Db.StringGetAsync($"{DimPrefix}:{dimension}:{dimKey}:grandtotal");
+
+            result[dimKey] = new DimensionStats
+            {
+                Count = countVal.HasValue ? (long)countVal : 0,
+                Subtotal = subVal.HasValue ? (long)subVal / 100m : 0m,
+                GrandTotal = grandVal.HasValue ? (long)grandVal / 100m : 0m
+            };
+        }
+
+        return result;
+    }
+
+    // ========== Global Counters ==========
+
+    public async Task IncrementOrderCountAsync(CancellationToken ct = default)
+    {
+        await Db.StringIncrementAsync(TotalKey);
     }
 
     public async Task<long> GetOrderCountAsync(CancellationToken ct = default)
@@ -51,51 +121,11 @@ public class RedisProjectionService : IRedisProjectionService
         return val.HasValue ? (long)val : 0;
     }
 
-    public async Task<long> GetOrdersByStatusAsync(string status, CancellationToken ct = default)
+    // ========== Metadata ==========
+
+    public async Task SetLastUpdatedAsync(CancellationToken ct = default)
     {
-        var val = await Db.StringGetAsync($"{StatusPrefix}:{status}");
-        return val.HasValue ? (long)val : 0;
-    }
-
-    public async Task<Dictionary<string, long>> GetAllOrdersByStatusAsync(CancellationToken ct = default)
-    {
-        var server = _redis.GetServer(_redis.GetEndPoints().First());
-        var result = new Dictionary<string, long>();
-        var pattern = $"{StatusPrefix}:*";
-
-        await foreach (var key in server.KeysAsync(pattern: pattern))
-        {
-            var status = key.ToString().Replace($"{StatusPrefix}:", "");
-            var val = await Db.StringGetAsync(key);
-            if (val.HasValue)
-                result[status] = (long)val;
-        }
-
-        return result;
-    }
-
-    public async Task<Dictionary<string, (long Count, decimal TotalValue)>> GetAllOrdersByCurrencyAsync(CancellationToken ct = default)
-    {
-        var server = _redis.GetServer(_redis.GetEndPoints().First());
-        var result = new Dictionary<string, (long Count, decimal TotalValue)>();
-        var pattern = $"{CurrencyPrefix}:*:count";
-
-        await foreach (var key in server.KeysAsync(pattern: pattern))
-        {
-            var currency = key.ToString()
-                .Replace($"{CurrencyPrefix}:", "")
-                .Replace(":count", "");
-
-            var count = await Db.StringGetAsync($"{CurrencyPrefix}:{currency}:count");
-            var value = await Db.StringGetAsync($"{CurrencyPrefix}:{currency}:value");
-
-            result[currency] = (
-                Count: count.HasValue ? (long)count : 0,
-                TotalValue: value.HasValue ? (long)value / 100m : 0m
-            );
-        }
-
-        return result;
+        await Db.StringSetAsync(LastUpdatedKey, DateTimeOffset.UtcNow.ToString("O"));
     }
 
     public async Task<string?> GetLastUpdatedAsync(CancellationToken ct = default)
@@ -103,6 +133,8 @@ public class RedisProjectionService : IRedisProjectionService
         var val = await Db.StringGetAsync(LastUpdatedKey);
         return val.HasValue ? val.ToString() : null;
     }
+
+    // ========== Flush ==========
 
     public async Task FlushProjectionsAsync(CancellationToken ct = default)
     {
@@ -119,5 +151,11 @@ public class RedisProjectionService : IRedisProjectionService
             await Db.KeyDeleteAsync(keysToDelete.ToArray());
             _logger.LogInformation("Flushed {Count} projection keys from Redis", keysToDelete.Count);
         }
+    }
+
+    private static string SanitizeKey(string key)
+    {
+        if (string.IsNullOrWhiteSpace(key)) return "_empty_";
+        return key.Replace(":", "_").Replace(" ", "_");
     }
 }
