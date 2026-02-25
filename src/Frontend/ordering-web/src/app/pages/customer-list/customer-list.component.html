@@ -1,6 +1,9 @@
 <div class="customer-list-container">
   <header class="page-header">
-    <h1>Customers</h1>
+    <div class="page-title">
+      <h1>Customers</h1>
+      <span *ngIf="!loading && customers.length > 0" class="customer-count">{{ customers.length }}</span>
+    </div>
     <a routerLink="/customers/new" class="btn btn-primary">
       <span class="icon">+</span> New Customer
     </a>

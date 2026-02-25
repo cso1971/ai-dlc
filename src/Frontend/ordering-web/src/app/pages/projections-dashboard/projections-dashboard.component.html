@@ -1,0 +1,120 @@
+<div class="projections-container">
+  <header class="page-header">
+    <div class="page-title">
+      <h1>Projections Dashboard</h1>
+      <span *ngIf="stats" class="badge-total">{{ stats.totalOrders }} orders</span>
+    </div>
+    <div class="header-actions">
+      <button (click)="loadStats()" class="btn btn-secondary btn-sm" [disabled]="loading">
+        Refresh
+      </button>
+      <button (click)="toggleAutoRefresh()" class="btn btn-sm"
+              [class.btn-active]="autoRefreshEnabled"
+              [class.btn-secondary]="!autoRefreshEnabled">
+        Auto {{ autoRefreshEnabled ? 'ON' : 'OFF' }}
+      </button>
+    </div>
+  </header>
+
+  <!-- Loading -->
+  <div *ngIf="loading" class="loading">
+    <div class="spinner"></div>
+    <p>Loading projections...</p>
+  </div>
+
+  <!-- Error -->
+  <div *ngIf="error" class="error-message">
+    <p>{{ error }}</p>
+    <button (click)="loadStats()" class="btn btn-secondary">Retry</button>
+  </div>
+
+  <!-- Content -->
+  <ng-container *ngIf="!loading && !error && stats">
+    <!-- Summary cards -->
+    <div class="summary-row">
+      <div class="summary-card">
+        <div class="summary-icon">📦</div>
+        <div class="summary-body">
+          <div class="summary-value">{{ stats.totalOrders }}</div>
+          <div class="summary-label">Total Orders</div>
+        </div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-icon">🕐</div>
+        <div class="summary-body">
+          <div class="summary-value">{{ formatDate(stats.lastUpdated) }}</div>
+          <div class="summary-label">Last Updated</div>
+        </div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-icon">🔄</div>
+        <div class="summary-body">
+          <div class="summary-value">{{ formatTime(lastRefresh) }}</div>
+          <div class="summary-label">Last Refresh</div>
+        </div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-icon">📊</div>
+        <div class="summary-body">
+          <div class="summary-value">{{ dimensions.length }}</div>
+          <div class="summary-label">Active Dimensions</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty state -->
+    <div *ngIf="stats.totalOrders === 0" class="empty-state">
+      <div class="empty-icon">📊</div>
+      <h2>No projections yet</h2>
+      <p>Projections will appear here as orders are created and processed</p>
+    </div>
+
+    <!-- Dimension cards -->
+    <div class="dimensions-grid" *ngIf="stats.totalOrders > 0">
+      <div *ngFor="let dim of dimensions" class="dimension-card">
+        <div class="dimension-header">
+          <span class="dimension-icon">{{ getIconForDimension(dim.icon) }}</span>
+          <h3>{{ dim.label }}</h3>
+          <span class="dimension-count">{{ sortedEntries(dim.data).length }} keys</span>
+        </div>
+        <div class="dimension-body">
+          <table class="dimension-table">
+            <thead>
+              <tr>
+                <th class="col-key">Key</th>
+                <th class="col-num">Count</th>
+                <th class="col-num">Subtotal</th>
+                <th class="col-num">Grand Total</th>
+                <th class="col-bar">Distribution</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let entry of sortedEntries(dim.data)">
+                <td class="col-key">
+                  <span class="key-label">{{ entry.key }}</span>
+                </td>
+                <td class="col-num">{{ entry.stats.count }}</td>
+                <td class="col-num">{{ formatCurrency(entry.stats.subtotal) }}</td>
+                <td class="col-num font-bold">{{ formatCurrency(entry.stats.grandTotal) }}</td>
+                <td class="col-bar">
+                  <div class="bar-track">
+                    <div class="bar-fill" [style.width.%]="getBarWidth(entry.stats.grandTotal, dim.data)"></div>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr class="totals-row">
+                <td class="col-key"><strong>Total</strong></td>
+                <td class="col-num"><strong>{{ totalCount(dim.data) }}</strong></td>
+                <td class="col-num"></td>
+                <td class="col-num font-bold"><strong>{{ formatCurrency(totalGrand(dim.data)) }}</strong></td>
+                <td class="col-bar"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  </ng-container>
+</div>

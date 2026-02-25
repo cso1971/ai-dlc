@@ -73,6 +73,31 @@
         box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
       }
     }
+
+    &.btn-logout {
+      background: transparent;
+      border: 1px solid #a0aec0;
+      cursor: pointer;
+      font: inherit;
+
+      &:hover {
+        color: white;
+        border-color: white;
+      }
+    }
+  }
+
+  .nav-separator {
+    width: 1px;
+    height: 24px;
+    background: rgba(255, 255, 255, 0.15);
+    margin: 0 0.25rem;
+  }
+
+  .nav-user {
+    color: #a0aec0;
+    font-size: 0.9rem;
+    margin-right: 0.5rem;
   }
 }
 

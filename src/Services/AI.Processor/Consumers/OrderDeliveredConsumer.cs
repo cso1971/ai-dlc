@@ -75,15 +75,8 @@ public class OrderDeliveredConsumer : IConsumer<OrderDelivered>
 
             await _qdrantService.UpsertOrderAsync(message.OrderId, embedding, payload, context.CancellationToken);
 
-            // Analyze delivery performance
-            var analysis = await _ollamaService.AnalyzeOrderEventAsync(
-                "Order Delivered",
-                deliveryText,
-                context.CancellationToken);
-
-            _logger.LogInformation("Order {OrderId} delivery processed. Transit: {TransitDays} days. Analysis: {Analysis}", 
-                message.OrderId, deliveryDuration?.ToString("F1") ?? "N/A",
-                analysis.Substring(0, Math.Min(200, analysis.Length)));
+            _logger.LogInformation("Order {OrderId} delivery processed. Transit: {TransitDays} days",
+                message.OrderId, deliveryDuration?.ToString("F1") ?? "N/A");
         }
         catch (Exception ex)
         {

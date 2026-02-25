@@ -120,7 +120,7 @@ export class AiChatComponent implements OnInit {
   }
 
   private sendSearchQuery(query: string): void {
-    this.aiService.semanticSearch({ query, limit: 50 }).subscribe({
+    this.aiService.semanticSearch({ query, limit: 10 }).subscribe({
       next: (response) => {
         if (response.results.length === 0) {
           this.addAssistantMessage('No similar orders found.', response.duration);

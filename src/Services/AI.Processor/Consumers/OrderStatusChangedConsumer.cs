@@ -66,14 +66,8 @@ public class OrderStatusChangedConsumer : IConsumer<OrderStatusChanged>
 
             await _qdrantService.UpsertOrderAsync(message.OrderId, embedding, payload, context.CancellationToken);
 
-            // Analyze the status transition
-            var analysis = await _ollamaService.AnalyzeOrderEventAsync(
-                $"Status Change: {message.PreviousStatus} → {message.NewStatus}",
-                statusChangeText,
-                context.CancellationToken);
-
-            _logger.LogInformation("Order {OrderId} status change processed. Analysis: {Analysis}", 
-                message.OrderId, analysis.Substring(0, Math.Min(200, analysis.Length)));
+            _logger.LogInformation("Order {OrderId} status change processed: {PreviousStatus} -> {NewStatus}",
+                message.OrderId, message.PreviousStatus, message.NewStatus);
         }
         catch (Exception ex)
         {

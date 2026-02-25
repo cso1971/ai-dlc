@@ -1,7 +1,7 @@
 # 🧠 CONTEXT.md - Session Summary
 
 > Questo file contiene il contesto e la cronologia delle decisioni prese durante lo sviluppo del progetto.
-> Ultimo aggiornamento: 2026-02-07
+> Ultimo aggiornamento: 2026-02-20
 
 ---
 
@@ -20,11 +20,13 @@
 ### Bounded Contexts
 | Servizio | Porta | Descrizione |
 |----------|-------|-------------|
+| **Gateway** | 5000 | API Gateway (YARP); validazione JWT Keycloak (Step 2); CORS per :4200; `/` e `/health` pubblici, route proxy richiedono Bearer (audience `playground-api`, `ordering-web`, `account`); **Swagger UI aggregata** su `/swagger` (dropdown per tutti i servizi, route pubbliche via YARP con metadata `Public`); **OpenTelemetry** tracing verso Jaeger (ASP.NET Core + HttpClient instrumentation) |
 | **Ordering.Api** | 5001 | Gestione ordini, aggregato Order, REST + MassTransit |
 | **Invoicing.Api** | 5002 | Fatturazione (placeholder) |
 | **Customers.Api** | 5003 | Clienti: CRUD (create, get, update, cancel soft-delete), REST + MassTransit, EF schema `customers` |
 | **AI.Processor** | 5010 | Elaborazione AI, RAG, embedding, chat |
 | **Orchestrator.Api** | 5020 | Semantic Kernel + Ollama: REST chat, MassTransit trigger, plugin HTTP e comandi |
+| **Projections** | 5030 | CQRS read model: consumer MassTransit proiettano eventi ordine su Redis; endpoint `/api/projections/stats` e `/api/projections/flush` |
 
 ### Infrastruttura (Docker)
 | Container | Porta | Uso |
@@ -34,10 +36,14 @@
 | Qdrant | 6333/6334 | Vector database per RAG |
 | Ollama | 11434 | LLM locale (llama3.2 + nomic-embed-text) — **opzionale in Docker**: consigliato Ollama nativo per GPU acceleration (Metal/CUDA/ROCm, 3-5x più veloce) |
 | Jaeger | 16686/4317 | Distributed tracing |
+| Redis | 6379 | Cache e read model per proiezioni CQRS (StackExchange.Redis) |
+| Keycloak | 8180 | IdP; realm `playground`, client `playground-api` (backend), `ordering-web` (SPA). Import automatico da `infra/keycloak/playground-realm.json`. Admin: admin/admin. |
 
 ### Frontend
 - **Angular 17** su porta 4200
-- Pagine: lista ordini, dettaglio, creazione, workflow actions
+- **Auth (Step 4):** Login con **Authorization Code + PKCE** (nessun flusso implicito). keycloak-angular + keycloak-js; init con `flow: 'standard'`, `pkceMethod: 'S256'`, `onLoad: 'login-required'`. Guard reindirizza a Keycloak se non autenticato; Bearer inviato al Gateway; Logout in navbar. Client Keycloak `ordering-web` (pubblico). Usare **http://localhost:4200** (non 127.0.0.1).
+- Chiamate API tutte tramite **Gateway** (http://localhost:5000); environment con `apiUrl`, `keycloak` (url, realm, clientId).
+- Pagine: lista ordini, dettaglio, creazione, workflow actions (tutte protette da guard).
 - **AI Chat Assistant**: sempre visibile; selettore "Chat with: RAG | Semantic Kernel" per usare AI.Processor (RAG) o Orchestrator.Api (Semantic Kernel). Search e Analyze solo con RAG.
 
 ---
@@ -102,10 +108,10 @@
 
 ### 4. **RAG implementato nel chat endpoint**
 - `/api/ai/chat` cerca in Qdrant **sia** la collection `orders` **sia** la collection `customers` (ricerca semantica in parallelo), unisce i risultati in un unico contesto e lo invia a Ollama
-- **Aggregati reali**: per risposte corrette sul valore totale degli ordini, il chat recupera gli aggregati da Ordering.Api (`GET /api/orders/stats`) e li inietta nel contesto come sezione "DATI DI SISTEMA (aggregati reali)". Il system prompt istruisce il LLM a usare solo questi dati per totali/somme, non la somma dei singoli ordini restituiti dalla search (che è un sottoinsieme).
+- **Aggregati reali**: per risposte corrette sul valore totale, numero e conteggio per stato degli ordini, il chat recupera gli aggregati da Ordering.Api (`GET /api/orders/stats`) e li inietta nel contesto come sezione "DATI DI SISTEMA (aggregati reali)". Include: totale ordini, valore per valuta, **conteggio per stato** (Delivered, Shipped, Cancelled, ecc.). Il system prompt istruisce il LLM a usare solo questi dati per totali/somme/conteggi per stato, non i singoli ordini dalla search (che sono un sottoinsieme).
 - Passa i risultati come contesto a Ollama
 - Risponde basandosi su dati reali, non conoscenza generica
-- **MaxResults** (default 20): limite totale contesto; viene ripartito tra ordini e clienti (metà ciascuno)
+- **MaxResults** (default 10): limite totale contesto; viene ripartito tra ordini e clienti (5+5). Ottimizzato per llama3.2 (3B): top-5 coprono i risultati rilevanti, totali gestiti via stats aggregati
 
 ### 5. **Orchestrator.Api (Semantic Kernel)**
 - Nuovo servizio che usa **Semantic Kernel** con **Ollama** (solo LLM locale, nessuna chiamata a API esterne).
@@ -114,7 +120,15 @@
 - **Chat**: uso di **PromptExecutionSettings** con **FunctionChoiceBehavior.Auto()** per abilitare l’auto-invocazione delle funzioni; **system prompt** che istruisce il modello a usare i plugin (es. SendCreateCustomer quando l’utente chiede di creare un cliente) e a non suggerire JSON o altri metodi.
 - Il kernel può quindi sia leggere dati (ordini, clienti) sia inviare comandi (es. crea ordine, crea cliente) in base al prompt.
 
-### 6. **Embedding vs Analisi AI**
+### 7. **CQRS Projections su Redis**
+- Servizio dedicato `Projections` (porta 5030) consuma tutti gli eventi ordine (Created, StatusChanged, Shipped, Delivered, Cancelled, Completed) via MassTransit e proietta aggregazioni su Redis (contatori atomici INCR/DECR)
+- Order snapshot salvati in Redis per lookup cross-evento; dimensioni aggregate: status, currency, customer-ref, shipping-method, created-month/year, delivered-month/year, product — ognuna con count, subtotal, grandTotal
+- Endpoint REST: `GET /api/projections/stats` (tutte le dimensioni), `GET /api/projections/stats/{dimension}`, `POST /api/projections/flush` (reset proiezioni)
+- Gateway YARP route: `/api/projections/*` → projections-cluster (porta 5030)
+- **Frontend**: pagina Projections Dashboard (`/projections`) nel frontend Angular — mostra summary cards (total orders, last updated, active dimensions) e breakdown per dimensione con count, subtotal, grandTotal e barra distribuzione. Auto-refresh ogni 10s
+- **Integrazione RAG**: `AI.Processor` chiama `GET /api/projections/stats` in parallelo all'embedding e alla ricerca Qdrant. I dati aggregati vengono formattati in testo italiano semanticamente stabile (frasi chiare per ogni dimensione) e inclusi nel contesto RAG come "STATISTICHE E PROIEZIONI ORDINI". Se il servizio Projections non è disponibile, fallback sulle SQL stats di `Ordering.Api`. Il system prompt istruisce il LLM a usare le proiezioni per tutte le domande su totali, conteggi e distribuzioni.
+
+### 8. **Embedding vs Analisi AI**
 - **Embedding** (nomic-embed-text): ~200ms, necessario per RAG
 - **Analisi AI** (llama3.2): ~40 sec, opzionale, può causare timeout
 
@@ -140,10 +154,15 @@
 **Causa verificata**: Non timeout, ma **Qdrant RpcException "Collection already exists"** – race tra consumer: il primo crea la collection `orders`, i successivi chiamano CreateCollection e ricevono AlreadyExists, eccezione → fault queue.
 **Soluzione**: In `QdrantService.EnsureCollectionExistsAsync` gestire l’eccezione quando il messaggio contiene "AlreadyExists" / "already exists" (trattare come successo e uscire). Alternativa per riprocessare: usare RabbitMQ Management API per spostare messaggi dalla coda errori alla coda principale.
 
-### Ollama sovraccarico (978% CPU)
-**Problema**: Troppe richieste parallele saturavano Ollama.
-**Causa**: Analisi AI sincrona per ogni ordine (~40 sec ciascuna).
-**Mitigazione**: Timeout esteso, ma potrebbe servire rimuovere analisi AI o usare modello più leggero.
+### Ollama sovraccarico (978–1900% CPU)
+**Problema**: Troppe richieste parallele o singola inferenza LLM saturano tutti i core CPU.
+**Causa**: Senza GPU, l'inferenza llama3.2 usa tutti i thread CPU disponibili.
+**Soluzioni applicate**:
+- `OLLAMA_NUM_PARALLEL=1` per evitare richieste parallele
+- `OLLAMA_MAX_LOADED_MODELS=2` per tenere llama3.2 + nomic-embed-text in VRAM simultaneamente (evita model swapping ~10s per chiamata)
+- `OLLAMA_FLASH_ATTENTION=1` per ottimizzare l'uso memoria durante inferenza
+- Limiti risorse Docker: `cpus: 8`, `memory: 8G` (modificabili in docker-compose.yml)
+- **Raccomandazione**: abilitare GPU NVIDIA con `docker-compose.gpu.yml` per ridurre CPU al minimo e velocizzare di 10-20x
 
 ### Ollama in Docker non usa GPU
 **Problema**: Docker Ollama non ha accesso alla GPU di default (su macOS nessun passthrough Metal; su Linux serve NVIDIA Container Toolkit per CUDA).
@@ -153,6 +172,11 @@
 **Problema**: `Cannot resolve 'Orchestrator.Api.Plugins.MassTransitCommandsPlugin' from root provider because it requires scoped service 'MassTransit.ISendEndpointProvider'.`
 **Causa**: Il Kernel è registrato come singleton e alla costruzione risolve i plugin dal root provider; `ISendEndpointProvider` in MassTransit è scoped, quindi non risolvibile dal root.
 **Soluzione**: In `MassTransitCommandsPlugin` usare **IBus** invece di `ISendEndpointProvider`. `IBus` è singleton e espone `GetSendEndpoint`, così il plugin può essere risolto quando si costruisce il Kernel.
+
+### Keycloak init failed (nonce mismatch) – pagina bianca dopo login
+**Problema**: Dopo login Keycloak, il token exchange (`/token`) restituiva 200 ma `keycloak.init()` rigettava con `undefined`, causando pagina bianca. Nessun Error object nel reject.
+**Causa**: `onLoad: 'check-sso'` lancia un silent iframe login (`prompt=none`) che genera un nuovo nonce e lo salva in `sessionStorage`, sovrascrivendo il nonce del login principale. Quando il code exchange ritorna il token, il nonce nel token non corrisponde più al nonce in storage → `keycloak-js` chiama `promise.setError()` senza argomenti → reject con `undefined`.
+**Soluzione**: Cambiato `onLoad` da `'check-sso'` a `'login-required'` e disabilitato nonce validation (`useNonce: false`) in `app.init.ts`. Il nonce mismatch persiste anche con `login-required` (probabile incompatibilità versione Keycloak server/keycloak-js); PKCE già protegge il code exchange, quindi l'impatto sicurezza è minimo. Semplificato anche il catch handler. Ripristinato `keycloak-js` a `^23.0.7`.
 
 ### Chat Semantic Kernel non crea il cliente (risponde con JSON)
 **Problema**: Alla richiesta "crea un cliente Acme SPA" il chatbot rispondeva suggerendo un file JSON invece di eseguire la creazione; in un secondo caso restituiva il JSON della “chiamata” (name/parameters) senza eseguirla.
@@ -223,13 +247,17 @@ just infra-up           # 2. Avvia Docker (senza Ollama Docker su Apple Silicon)
 just ollama-serve       # 3. Avvia Ollama nativo (Metal GPU) — in un terminale separato
 just ollama-init        # 4. Pull modelli (llama3.2 + nomic-embed-text)
 just db-all             # 5. Crea schema DB (ordering + customers)
-just run-ordering       # 6. Avvia servizi — ognuno in un terminale separato
+
+// TODO: in just
+# 6. Crea utente Keycloak (user1 / user1) — vedi README.md step 4 per dettagli
+
+just run-ordering       # 7. Avvia servizi — ognuno in un terminale separato
 just run-customers
 just run-ai
 just run-orchestrator
-just frontend-install   # 7. Installa dipendenze frontend
-just run-frontend       # 8. Avvia Angular (http://localhost:4200)
-just simulate           # 9. Genera ordini di test
+just frontend-install   # 8. Installa dipendenze frontend
+just run-frontend       # 9. Avvia Angular (http://localhost:4200)
+just simulate           # 10. Genera ordini di test
 ```
 
 ---

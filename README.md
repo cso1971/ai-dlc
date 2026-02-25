@@ -5,30 +5,22 @@ A .NET distributed system playground for AI exploration with multiple bounded co
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              INFRASTRUCTURE                                  │
-├───────────────┬───────────────┬───────────────┬───────────────┬─────────────┤
-│   PostgreSQL  │   RabbitMQ    │    Qdrant     │    Ollama     │   Jaeger    │
-│   :5432       │ :5672/:15672  │  :6333/:6334  │    :11434     │   :16686    │
-└───────────────┴───────────────┴───────────────┴───────────────┴─────────────┘
-         │              │               │               │
-         │    ┌─────────┼───────────────┼───────────────┬───────────────┐
-         │    │         │               │               │               │
-┌────────▼────▼────┐    │     ┌─────────▼─────────┐     ┌─▼────────────────┐
-│   Ordering API   │────┼────▶│   AI.Processor    │     │ Orchestrator API  │
-│      :5001       │    │     │   (Worker)        │     │     :5020         │
-└────────┬─────────┘    │     │   Ollama + Qdrant │     │ Semantic Kernel  │
-         ▲              │     └───────────────────┘     │ Ollama + plugins  │
-         │              │               ▲               └────────┬────────┘
-┌────────┴────────┐     │               │ (Events)               │ HTTP
-│  Invoicing API  │─────┤               │                        ▼
-│     :5002       │     │               │               (Ordering, Customers)
-└─────────────────┘     │               │
-         │              │               │
-┌────────▼────────┐     │               │
-│  Customers API  │─────┘───────────────┘
-│     :5003       │
-└─────────────────┘
+                    ┌─────────────────────────────────────┐
+                    │         Gateway (YARP) :5000        │
+                    │   Single entry for all REST APIs    │
+                    └─────────────────────┬───────────────┘
+                                          │
+┌─────────────────────────────────────────┼──────────────────────────────────────┐
+│                    INFRASTRUCTURE       │                                      │
+├───────────────┬─────────────┬───────────┼───────────┬─────────────┬────────────┤
+│   PostgreSQL  │  RabbitMQ   │  Qdrant   │  Ollama   │   Jaeger    │   Redis    │
+│   :5432       │ :5672/15672 │ :6333/6334│  :11434   │   :16686    │   :6379    │
+└───────────────┴─────────────┴───────────┴───────────┴─────────────┴────────────┘
+         │              │              │        │
+┌────────▼────┐  ┌──────▼──────┐  ┌────▼─────┐  │     ┌──────────────────────────┐
+│ Ordering API│  │Invoicing API│  │Customers │  │     │AI.Processor  Orchestrator│
+│   :5001     │  │   :5002     │  │  :5003   │  └───▶│   :5010         :5020     │
+└─────────────┘  └─────────────┘  └──────────┘        └──────────────────────────┘
 ```
 
 ## Bounded Contexts
@@ -62,6 +54,8 @@ just simulate           # Generate test data (10 customers + 10 orders + workflo
 
 **GPU acceleration:** Use `just infra-up` (without Docker Ollama) + `just ollama-serve` to run Ollama natively with GPU support (Metal, CUDA, ROCm — 3-5x faster). This is the recommended setup for any machine with a GPU.
 
+**Tuning risorse Ollama (senza GPU):** il container Ollama è configurato con limiti di 8 CPU e 8 GB RAM per evitare che saturi il sistema durante l'inferenza. Le variabili `OLLAMA_NUM_PARALLEL=1` e `OLLAMA_MAX_LOADED_MODELS=1` limitano il parallelismo. Per dare più risorse, modifica `deploy.resources.limits` in `docker-compose.yml`. Per allocare più risorse a Docker Desktop: Settings → Resources → aumenta CPU e Memory.
+
 **Docker Ollama (CPU only):** `just infra-up-ollama` starts Ollama in Docker without GPU access (NVIDIA GPU in Docker requires [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)).
 
 **Wipe all data:** `just db-wipe` deletes all rows in PostgreSQL and removes Qdrant collections.
@@ -77,17 +71,49 @@ just simulate           # Generate test data (10 customers + 10 orders + workflo
 | Qdrant Dashboard | http://localhost:6333/dashboard | - |
 | Ollama API | http://localhost:11434 | - |
 | Jaeger UI | http://localhost:16686 | - |
+| Redis | `localhost:6379` | - |
+| **Keycloak** | http://localhost:8180 | Admin: `admin` / `admin` — Realm: `playground`, clients: `playground-api` (backend), `ordering-web` (SPA). Realm is auto-imported from `infra/keycloak/playground-realm.json` on first start. |
 
 ## Service URLs
 
 | Service | Swagger | API Base |
 |---------|---------|----------|
+| **Gateway (YARP)** | http://localhost:5000/swagger | http://localhost:5000 (proxies to all APIs below) |
 | Ordering API | http://localhost:5001/swagger | http://localhost:5001/api |
 | Invoicing API | http://localhost:5002/swagger | http://localhost:5002/api |
 | Customers API | http://localhost:5003/swagger | http://localhost:5003/api |
 | AI Processor | http://localhost:5010/swagger | http://localhost:5010/api |
 | **Orchestrator API** | http://localhost:5020/swagger | http://localhost:5020/api |
+| **Projections** | - | http://localhost:5030/api |
 | Angular Frontend | http://localhost:4200 | - |
+
+> **Tip:** La Swagger UI del Gateway (`localhost:5000/swagger`) aggrega tutte le API in un unico punto con un dropdown per selezionare il servizio.
+
+When using the Gateway, use **http://localhost:5000** as the API base: e.g. `GET http://localhost:5000/api/orders`, `GET http://localhost:5000/api/customers`, `POST http://localhost:5000/api/orchestrator/chat`, `POST http://localhost:5000/api/ai/chat`.
+
+## Gateway (YARP)
+
+The **Gateway** is a .NET reverse proxy (YARP) that exposes a single entry point for all domain APIs and enforces JWT authentication (Keycloak).
+
+- **URL:** http://localhost:5000
+- **Auth (Step 2):** All proxied requests require a valid JWT Bearer token (Keycloak realm `playground`). Accepted audiences: `playground-api` (backend), `ordering-web` (SPA), `account`. `GET /` and `GET /health` are public (no token). Config: `Authentication:Authority`, `Authentication:RequireHttpsMetadata` in appsettings.
+- **CORS:** Enabled for `http://localhost:4200` and `http://127.0.0.1:4200` so the Angular app can call the Gateway.
+- **Routes:** `/api/orders`, `/api/metrics` → Ordering.Api; `/api/customers` → Customers.Api; `/api/invoices` → Invoicing.Api; `/api/orchestrator` → Orchestrator.Api; `/api/ai` → AI.Processor
+- **Run:** `dotnet run --project src/Services/Gateway`. Keycloak must be running (e.g. `docker compose --profile infra up -d`) so the Gateway can validate tokens.
+- **Docker:** Included in `docker-compose --profile full` as `gateway` (port 5000). Backend and Keycloak addresses in `appsettings.Docker.json`.
+- **Frontend (Step 4):** The Angular app uses Keycloak login with **Authorization Code + PKCE** (no implicit flow). When not authenticated the guard redirects to Keycloak; after login the app sends the Bearer token to the Gateway. Logout in the navbar. Create a user in Keycloak Admin (realm **playground** → Users → Add user) to log in. Use **http://localhost:4200** (not 127.0.0.1) to avoid redirect issues.
+- **Testing with a token:** Get an access token from Keycloak (realm `playground`, client `playground-api` — use the client secret from Keycloak Admin → Clients → playground-api → Credentials). Example: `POST http://localhost:8180/realms/playground/protocol/openid-connect/token` with `grant_type=client_credentials`, `client_id=playground-api`, `client_secret=<secret>`. Then call `GET http://localhost:5000/api/orders` with header `Authorization: Bearer <access_token>`.
+
+## Keycloak (IdP – Step 1)
+
+Keycloak is the Identity Provider for authentication and (later) authorization.
+
+- **URL:** http://localhost:8180 — Admin Console: http://localhost:8180/admin (login: `admin` / `admin`)
+- **Realm:** `playground` (auto-imported on first start from `infra/keycloak/playground-realm.json`)
+- **Clients:**  
+  - `playground-api` — confidential; audience for Gateway/JWT validation (Step 2)  
+  - `ordering-web` — public SPA; **Authorization Code + PKCE** (Standard Flow). Redirect URIs `http://localhost:4200/*`, web origins `http://localhost:4200`. Used by the Angular app for login (Step 4).
+- **Run:** included in `docker compose --profile infra up -d` (or `full`). Gateway enforces JWT (Step 2); Angular uses Keycloak login with PKCE (Step 4).
 
 ## Orchestrator API (Semantic Kernel)
 
@@ -311,7 +337,7 @@ curl -X POST http://localhost:5010/api/ai/search `
 
 ### RAG Architecture
 
-**Chat RAG** (`POST /api/ai/chat`): the user's question is embedded, then **both** Qdrant collections are queried in parallel—**orders** and **customers**. The top similar orders and top similar customers are merged into a single context (sections "DATI ORDINI" and "DATI CLIENTI"), and Ollama answers based on that combined context. So the chatbot can answer questions about both orders and customers (e.g. "Which customers are in Italy?", "Orders for company X").
+**Chat RAG** (`POST /api/ai/chat`): the user's question is embedded, then three data sources are queried **in parallel**: (1) **Redis Projections** via the Projections service for real-time aggregated statistics (9 dimensions: status, currency, customer-ref, shipping-method, product, created/delivered month/year — each with count, subtotal, grandTotal), (2) **Qdrant orders** collection for semantically similar orders, (3) **Qdrant customers** collection for semantically similar customers. The projection data is formatted as semantically stable Italian text ("STATISTICHE E PROIEZIONI ORDINI") so the LLM can accurately answer aggregate questions (totals, counts, distributions). If the Projections service is unavailable, the system falls back to SQL stats from Ordering API. The system prompt instructs the LLM to always use projection data for aggregate questions and Qdrant results for specific order/customer details.
 
 When an event is received, AI.Processor:
 1. **Fetches complete order** from Ordering API via HTTP (`GET /api/orders/{id}`)
@@ -390,7 +416,8 @@ DistributedPlayground/
 │   │   │   │   └── OrderCompletedConsumer.cs
 │   │   │   └── Program.cs
 │   │   ├── Invoicing.Api/
-│   │   └── Customers.Api/
+│   │   ├── Customers.Api/
+│   │   └── Projections/         # CQRS read model (Redis projections)
 │   ├── Tools/
 │   │   └── OrderSimulator/      # CLI tool for test data generation
 │   └── Shared/
@@ -456,6 +483,7 @@ Angular 17 SPA for managing orders and customers.
 | Customer List | `/customers` | List all customers (Active / Cancelled) |
 | Customer Detail | `/customers/:id` | View customer, edit (partial update), or cancel (soft delete) |
 | Create Customer | `/customers/new` | Create a new customer with company, contact, and optional addresses |
+| Projections Dashboard | `/projections` | Real-time CQRS projections from Redis: summary cards, 9 dimension breakdowns (status, currency, customer-ref, shipping-method, created month/year, delivered month/year, product) with count, subtotal, grandTotal and distribution bars. Auto-refresh every 10s |
 
 ### Running the Frontend
 
@@ -464,7 +492,7 @@ just frontend-install   # npm install (first time)
 just run-frontend           # npm start
 ```
 
-**URL:** http://localhost:4200 (or http://127.0.0.1:4200 — CORS allows both)
+**URL:** http://localhost:4200. Use **localhost** (not 127.0.0.1) for Keycloak redirect to work correctly. All routes (orders, customers) require login; the app redirects to Keycloak and then sends the Bearer token to the Gateway.
 
 For the app to work fully, the **backends** must be running: Ordering.Api (5001), Customers.Api (5003), and optionally AI.Processor (5010), Orchestrator.Api (5020). Otherwise lists will be empty or the AI panel will show connection errors.
 
@@ -505,7 +533,9 @@ Click the 🤖 button to open/close the panel. Use "Chat with: RAG" or "Chat wit
 | **Jaeger** | Trace visualization |
 | **Swashbuckle** | OpenAPI/Swagger |
 | **Qdrant** | Vector database for AI/RAG |
+| **Redis 7** | CQRS projections read model (atomic counters) |
 | **Ollama** | Local LLM |
+| **StackExchange.Redis** | Redis client for .NET |
 
 ## Contracts (MassTransit Messages)
 

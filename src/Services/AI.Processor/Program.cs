@@ -37,6 +37,17 @@ builder.Services.AddHttpClient<ICustomerApiClient, CustomerApiClient>(client =>
     .HandleTransientHttpError()
     .WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt))));
 
+// ===== Projections API Client with Polly =====
+builder.Services.AddHttpClient<IProjectionApiClient, ProjectionApiClient>(client =>
+{
+    var baseUrl = builder.Configuration["ProjectionsApi:BaseUrl"] ?? "http://localhost:5030";
+    client.BaseAddress = new Uri(baseUrl);
+    client.DefaultRequestHeaders.Add("Accept", "application/json");
+})
+.AddPolicyHandler(HttpPolicyExtensions
+    .HandleTransientHttpError()
+    .WaitAndRetryAsync(2, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt))));
+
 // ===== Swagger/OpenAPI =====
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>

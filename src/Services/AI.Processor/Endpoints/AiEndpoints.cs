@@ -19,21 +19,24 @@ public static class AiEndpoints
             [FromServices] IOllamaService ollamaService,
             [FromServices] IQdrantService qdrantService,
             [FromServices] IOrderApiClient orderApiClient,
+            [FromServices] IProjectionApiClient projectionApiClient,
             ILogger<Program> logger,
             CancellationToken cancellationToken) =>
         {
             var sw = Stopwatch.StartNew();
             
-            // Step 1: Generate embedding and fetch order aggregates in parallel
+            // Step 1: Generate embedding, fetch projections and fallback stats in parallel
             logger.LogDebug("RAG: Generating embedding for query: {Query}", request.Prompt);
             var embeddingTask = ollamaService.GenerateEmbeddingAsync(request.Prompt, cancellationToken);
+            var projectionsTask = projectionApiClient.GetStatsAsync(cancellationToken);
             var statsTask = orderApiClient.GetOrderStatsAsync(cancellationToken);
-            await Task.WhenAll(embeddingTask, statsTask);
+            await Task.WhenAll(embeddingTask, projectionsTask, statsTask);
             var queryEmbedding = await embeddingTask;
+            var projections = await projectionsTask;
             var orderStats = await statsTask;
             
-            var maxResults = request.MaxResults ?? 20;
-            var limitPerCollection = (maxResults + 1) / 2; // split between orders and customers
+            var maxResults = request.MaxResults ?? 10;
+            var limitPerCollection = (maxResults + 1) / 2;
             
             // Step 2: Search Qdrant for relevant orders and customers (parallel)
             logger.LogDebug("RAG: Searching Qdrant for relevant orders and customers...");
@@ -43,51 +46,57 @@ public static class AiEndpoints
             var orderResults = await ordersTask;
             var customerResults = await customersTask;
             
-            // Step 3: Build context: start with system aggregates (for correct total-value answers), then RAG results
+            // Step 3: Build context with projections (preferred) or fallback to SQL stats
             var contextBuilder = new System.Text.StringBuilder();
             var idKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "orderId", "customerId", "orderText", "customerText" };
             
-            if (orderStats != null)
+            if (projections != null && projections.TotalOrders > 0)
             {
-                contextBuilder.AppendLine("=== DATI DI SISTEMA (aggregati reali - usare per totali e somme) ===");
-                contextBuilder.AppendLine($"Numero totale ordini: {orderStats.TotalOrderCount}");
+                logger.LogDebug("RAG: Using Redis projections ({Total} orders)", projections.TotalOrders);
+                BuildProjectionContext(contextBuilder, projections);
+            }
+            else if (orderStats != null)
+            {
+                logger.LogDebug("RAG: Projections unavailable, falling back to SQL stats");
+                contextBuilder.AppendLine("=== STATISTICHE ORDINI (aggregati dal database) ===");
+                contextBuilder.AppendLine($"Numero totale ordini nel sistema: {orderStats.TotalOrderCount}.");
                 foreach (var c in orderStats.ByCurrency)
-                    contextBuilder.AppendLine($"  Valore totale in {c.CurrencyCode}: {c.TotalValue:F2} ({c.OrderCount} ordini)");
+                    contextBuilder.AppendLine($"  Valuta {c.CurrencyCode}: {c.OrderCount} ordini per un valore complessivo di {c.TotalValue:F2}.");
+                if (orderStats.ByStatus.Count > 0)
+                    foreach (var s in orderStats.ByStatus)
+                        contextBuilder.AppendLine($"  Stato {s.Status}: {s.OrderCount} ordini.");
                 contextBuilder.AppendLine();
             }
             
-            contextBuilder.AppendLine("=== DATI ORDINI DAL DATABASE ===");
-            contextBuilder.AppendLine($"Trovati {orderResults.Count} ordini rilevanti:\n");
+            contextBuilder.AppendLine("=== ORDINI RILEVANTI (campione semantico dal database vettoriale) ===");
+            contextBuilder.AppendLine($"Trovati {orderResults.Count} ordini simili alla domanda:\n");
             var orderIndex = 0;
             foreach (var result in orderResults)
             {
                 orderIndex++;
-                contextBuilder.AppendLine($"--- Ordine #{orderIndex} (relevance: {result.Score:F2}) ---");
+                contextBuilder.AppendLine($"--- Ordine #{orderIndex} (rilevanza: {result.Score:F2}) ---");
                 if (result.Payload != null)
-                {
                     foreach (var kvp in result.Payload)
                     {
                         if (idKeys.Contains(kvp.Key)) continue;
                         contextBuilder.AppendLine($"  {kvp.Key}: {kvp.Value}");
                     }
-                }
                 contextBuilder.AppendLine();
             }
-            contextBuilder.AppendLine("=== DATI CLIENTI DAL DATABASE ===");
-            contextBuilder.AppendLine($"Trovati {customerResults.Count} clienti rilevanti:\n");
+
+            contextBuilder.AppendLine("=== CLIENTI RILEVANTI (campione semantico dal database vettoriale) ===");
+            contextBuilder.AppendLine($"Trovati {customerResults.Count} clienti simili alla domanda:\n");
             var customerIndex = 0;
             foreach (var result in customerResults)
             {
                 customerIndex++;
-                contextBuilder.AppendLine($"--- Cliente #{customerIndex} (relevance: {result.Score:F2}) ---");
+                contextBuilder.AppendLine($"--- Cliente #{customerIndex} (rilevanza: {result.Score:F2}) ---");
                 if (result.Payload != null)
-                {
                     foreach (var kvp in result.Payload)
                     {
                         if (idKeys.Contains(kvp.Key)) continue;
                         contextBuilder.AppendLine($"  {kvp.Key}: {kvp.Value}");
                     }
-                }
                 contextBuilder.AppendLine();
             }
             
@@ -95,10 +104,16 @@ public static class AiEndpoints
             var systemPrompt = request.SystemPrompt ?? """
                 Sei un assistente AI per un sistema di gestione ordini e clienti.
                 Rispondi SEMPRE basandoti sui dati forniti nel contesto.
-                Per il VALORE TOTALE degli ordini o il NUMERO TOTALE di ordini usa ESCLUSIVAMENTE la sezione "DATI DI SISTEMA (aggregati reali)": non sommare i singoli ordini elencati sotto, perché sono solo un sottoinsieme rilevante per la domanda.
-                Il contesto contiene anche DATI ORDINI e DATI CLIENTI (campioni rilevanti). Usa entrambe le sezioni se rilevanti.
-                Se ti viene chiesto di contare o elencare singoli elementi, usa i dati forniti; per totali complessivi usa sempre gli aggregati di sistema.
-                NON mostrare mai identificativi tecnici (GUID, UUID) nelle risposte. Descrivi ordini e clienti con dati leggibili: totale, valuta, azienda (companyName/displayName), città, riferimento ordine (customerReference), stato, ecc.
+                
+                REGOLE PER RISPONDERE A DOMANDE SU NUMERI, TOTALI E STATISTICHE:
+                - Usa ESCLUSIVAMENTE la sezione "STATISTICHE E PROIEZIONI ORDINI" per rispondere a domande su totali, conteggi, valori aggregati, distribuzioni per stato, valuta, metodo di spedizione, prodotto, periodo, cliente.
+                - NON contare i singoli ordini elencati nella sezione "ORDINI RILEVANTI": sono solo un campione semantico, non la lista completa.
+                - Se la domanda riguarda un dato aggregato (es. "quanti ordini Delivered?", "qual è il fatturato totale?", "quale prodotto vende di più?"), la risposta è nelle proiezioni.
+                
+                REGOLE PER RISPONDERE A DOMANDE SPECIFICHE:
+                - Per dettagli su ordini o clienti specifici, usa le sezioni "ORDINI RILEVANTI" e "CLIENTI RILEVANTI".
+                - NON mostrare mai identificativi tecnici (GUID, UUID). Usa dati leggibili: totale, valuta, azienda, città, riferimento ordine, stato.
+                
                 Se non trovi informazioni rilevanti nel contesto, dillo chiaramente.
                 Rispondi in italiano.
                 """;
@@ -114,15 +129,15 @@ public static class AiEndpoints
                 === RISPOSTA (basata sui dati sopra) ===
                 """;
             
-            logger.LogDebug("RAG: Sending prompt to Ollama with {OrderCount} orders and {CustomerCount} customers as context",
-                orderResults.Count, customerResults.Count);
+            logger.LogDebug("RAG: Sending prompt to Ollama with {OrderCount} orders, {CustomerCount} customers, projections={HasProjections}",
+                orderResults.Count, customerResults.Count, projections != null);
             
             // Step 5: Get response from Ollama
             var response = await ollamaService.GenerateCompletionAsync(ragPrompt, cancellationToken);
             sw.Stop();
             
-            logger.LogInformation("RAG: Completed in {Duration}ms with {OrderCount} orders, {CustomerCount} customers",
-                sw.ElapsedMilliseconds, orderResults.Count, customerResults.Count);
+            logger.LogInformation("RAG: Completed in {Duration}ms with {OrderCount} orders, {CustomerCount} customers, projections={HasProjections}",
+                sw.ElapsedMilliseconds, orderResults.Count, customerResults.Count, projections != null);
             
             return Results.Ok(new ChatResponse(
                 Response: response,
@@ -315,5 +330,86 @@ public static class AiEndpoints
         .WithDescription("Tests connectivity to the Qdrant vector database.")
         .Produces(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status503ServiceUnavailable);
+    }
+
+    private static void BuildProjectionContext(System.Text.StringBuilder sb, ProjectionStatsResponse p)
+    {
+        sb.AppendLine("=== STATISTICHE E PROIEZIONI ORDINI (dati aggregati in tempo reale da Redis) ===");
+        sb.AppendLine($"Numero totale di ordini nel sistema: {p.TotalOrders}.");
+        if (p.LastUpdated != null)
+            sb.AppendLine($"Ultimo aggiornamento proiezioni: {p.LastUpdated}.");
+        sb.AppendLine();
+
+        if (p.Status.Count > 0)
+        {
+            sb.AppendLine("Distribuzione ordini per STATO:");
+            foreach (var (key, stats) in p.Status.OrderByDescending(x => x.Value.Count))
+                sb.AppendLine($"  - {key}: {stats.Count} ordini, subtotale {stats.Subtotal:F2}, totale lordo {stats.GrandTotal:F2}.");
+            sb.AppendLine();
+        }
+
+        if (p.Currency.Count > 0)
+        {
+            sb.AppendLine("Distribuzione ordini per VALUTA:");
+            foreach (var (key, stats) in p.Currency.OrderByDescending(x => x.Value.GrandTotal))
+                sb.AppendLine($"  - {key}: {stats.Count} ordini per un valore complessivo di {stats.GrandTotal:F2} (subtotale {stats.Subtotal:F2}).");
+            sb.AppendLine();
+        }
+
+        if (p.CustomerRef.Count > 0)
+        {
+            sb.AppendLine("Ordini per CLIENTE (riferimento):");
+            foreach (var (key, stats) in p.CustomerRef.OrderByDescending(x => x.Value.GrandTotal))
+                sb.AppendLine($"  - Cliente \"{key}\": {stats.Count} ordini, valore totale {stats.GrandTotal:F2}.");
+            sb.AppendLine();
+        }
+
+        if (p.ShippingMethod.Count > 0)
+        {
+            sb.AppendLine("Ordini per METODO DI SPEDIZIONE:");
+            foreach (var (key, stats) in p.ShippingMethod.OrderByDescending(x => x.Value.Count))
+                sb.AppendLine($"  - {key}: {stats.Count} ordini, valore totale {stats.GrandTotal:F2}.");
+            sb.AppendLine();
+        }
+
+        if (p.Product.Count > 0)
+        {
+            sb.AppendLine("Ordini per PRODOTTO (descrizione articolo):");
+            foreach (var (key, stats) in p.Product.OrderByDescending(x => x.Value.GrandTotal))
+                sb.AppendLine($"  - \"{key}\": {stats.Count} unità vendute, subtotale {stats.Subtotal:F2}, totale lordo {stats.GrandTotal:F2}.");
+            sb.AppendLine();
+        }
+
+        if (p.CreatedMonth.Count > 0)
+        {
+            sb.AppendLine("Ordini per MESE DI CREAZIONE:");
+            foreach (var (key, stats) in p.CreatedMonth.OrderBy(x => x.Key))
+                sb.AppendLine($"  - {key}: {stats.Count} ordini, valore totale {stats.GrandTotal:F2}.");
+            sb.AppendLine();
+        }
+
+        if (p.CreatedYear.Count > 0)
+        {
+            sb.AppendLine("Ordini per ANNO DI CREAZIONE:");
+            foreach (var (key, stats) in p.CreatedYear.OrderBy(x => x.Key))
+                sb.AppendLine($"  - {key}: {stats.Count} ordini, valore totale {stats.GrandTotal:F2}.");
+            sb.AppendLine();
+        }
+
+        if (p.DeliveredMonth.Count > 0)
+        {
+            sb.AppendLine("Ordini CONSEGNATI per MESE:");
+            foreach (var (key, stats) in p.DeliveredMonth.OrderBy(x => x.Key))
+                sb.AppendLine($"  - {key}: {stats.Count} ordini consegnati, valore totale {stats.GrandTotal:F2}.");
+            sb.AppendLine();
+        }
+
+        if (p.DeliveredYear.Count > 0)
+        {
+            sb.AppendLine("Ordini CONSEGNATI per ANNO:");
+            foreach (var (key, stats) in p.DeliveredYear.OrderBy(x => x.Key))
+                sb.AppendLine($"  - {key}: {stats.Count} ordini consegnati, valore totale {stats.GrandTotal:F2}.");
+            sb.AppendLine();
+        }
     }
 }

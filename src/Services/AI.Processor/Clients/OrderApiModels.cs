@@ -107,6 +107,7 @@ public record OrderStatsResponse
 {
     public int TotalOrderCount { get; init; }
     public IReadOnlyList<CurrencyOrderStats> ByCurrency { get; init; } = [];
+    public IReadOnlyList<StatusOrderStats> ByStatus { get; init; } = [];
 }
 
 public record CurrencyOrderStats
@@ -114,4 +115,10 @@ public record CurrencyOrderStats
     public string CurrencyCode { get; init; } = "";
     public int OrderCount { get; init; }
     public decimal TotalValue { get; init; }
+}
+
+public record StatusOrderStats
+{
+    public string Status { get; init; } = "";
+    public int OrderCount { get; init; }
 }

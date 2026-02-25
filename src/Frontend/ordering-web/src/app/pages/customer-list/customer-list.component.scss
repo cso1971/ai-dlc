@@ -10,10 +10,30 @@
   align-items: center;
   margin-bottom: 2rem;
 
+  .page-title {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
   h1 {
     margin: 0;
     font-size: 2rem;
     color: #1a1a2e;
+  }
+
+  .customer-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2rem;
+    height: 2rem;
+    padding: 0 0.6rem;
+    border-radius: 9999px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-size: 0.875rem;
+    font-weight: 700;
   }
 }
 

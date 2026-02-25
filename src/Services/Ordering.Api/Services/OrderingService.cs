@@ -219,10 +219,20 @@ public class OrderingService
             })
             .OrderBy(c => c.CurrencyCode)
             .ToList();
+        var byStatus = orders
+            .GroupBy(o => o.Status.ToString())
+            .Select(g => new StatusOrderStats
+            {
+                Status = g.Key,
+                OrderCount = g.Count()
+            })
+            .OrderByDescending(s => s.OrderCount)
+            .ToList();
         return new OrderStatsResponse
         {
             TotalOrderCount = orders.Count,
-            ByCurrency = byCurrency
+            ByCurrency = byCurrency,
+            ByStatus = byStatus
         };
     }
 

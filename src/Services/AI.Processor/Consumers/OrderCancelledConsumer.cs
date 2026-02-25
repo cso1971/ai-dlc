@@ -77,25 +77,8 @@ public class OrderCancelledConsumer : IConsumer<OrderCancelled>
 
             await _qdrantService.UpsertOrderAsync(message.OrderId, embedding, payload, context.CancellationToken);
 
-            // Analyze cancellation for business insights - this is critical
-            var analysisPrompt = $"""
-                Analyze this order cancellation and provide business insights:
-                
-                {cancellationText}
-                
-                Please identify:
-                1. Potential root cause of cancellation
-                2. Was this preventable?
-                3. Customer retention recommendations
-                4. Process improvements to reduce future cancellations
-                5. Financial impact assessment
-                """;
-            
-            var analysis = await _ollamaService.GenerateCompletionAsync(analysisPrompt, context.CancellationToken);
-
-            _logger.LogWarning("Order {OrderId} CANCELLED. Value lost: {GrandTotal} {Currency}. Reason: {Reason}. Analysis: {Analysis}", 
-                message.OrderId, order.GrandTotal, order.CurrencyCode, message.CancellationReason,
-                analysis.Substring(0, Math.Min(300, analysis.Length)));
+            _logger.LogWarning("Order {OrderId} CANCELLED. Value lost: {GrandTotal} {Currency}. Reason: {Reason}",
+                message.OrderId, order.GrandTotal, order.CurrencyCode, message.CancellationReason);
         }
         catch (Exception ex)
         {

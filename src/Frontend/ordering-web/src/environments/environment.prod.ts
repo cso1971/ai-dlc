@@ -1,7 +1,14 @@
+/** All APIs via Gateway (YARP) - configure base URL and Keycloak for production */
 export const environment = {
   production: true,
-  apiUrl: 'http://localhost:5001',
-  customersApiUrl: 'http://localhost:5003',
-  aiApiUrl: 'http://localhost:5010',
-  orchestratorApiUrl: 'http://localhost:5020'
+  apiUrl: 'http://localhost:5000',
+  customersApiUrl: 'http://localhost:5000',
+  aiApiUrl: 'http://localhost:5000',
+  orchestratorApiUrl: 'http://localhost:5000',
+  /** Keycloak: use realm "playground" (must match Keycloak server realm name). */
+  keycloak: {
+    url: 'http://localhost:8180/',
+    realm: 'playground',
+    clientId: 'ordering-web'
+  }
 };

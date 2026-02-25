@@ -80,25 +80,8 @@ public class OrderCompletedConsumer : IConsumer<OrderCompleted>
 
             await _qdrantService.UpsertOrderAsync(message.OrderId, embedding, payload, context.CancellationToken);
 
-            // Generate comprehensive order summary
-            var summaryPrompt = $"""
-                Generate a comprehensive summary of this completed order for business records:
-                
-                {completionText}
-                
-                Include:
-                1. Order overview
-                2. Customer and shipping details
-                3. Product summary
-                4. Timeline analysis
-                5. Any notable aspects
-                """;
-            
-            var summary = await _ollamaService.GenerateCompletionAsync(summaryPrompt, context.CancellationToken);
-
-            _logger.LogInformation("Order {OrderId} COMPLETED. Total: {Amount} {Currency}. Cycle time: {CycleTime} days. Summary: {Summary}", 
-                message.OrderId, message.TotalAmount, order.CurrencyCode, totalCycleTime,
-                summary.Substring(0, Math.Min(300, summary.Length)));
+            _logger.LogInformation("Order {OrderId} COMPLETED. Total: {Amount} {Currency}. Cycle time: {CycleTime} days",
+                message.OrderId, message.TotalAmount, order.CurrencyCode, totalCycleTime);
         }
         catch (Exception ex)
         {

@@ -71,14 +71,19 @@ services:
       - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
-    # GPU support (uncomment if you have NVIDIA GPU)
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: all
-    #           capabilities: [gpu]
+    environment:
+      OLLAMA_NUM_PARALLEL: "1"
+      OLLAMA_MAX_LOADED_MODELS: "2"
+      OLLAMA_FLASH_ATTENTION: "1"
+    deploy:
+      resources:
+        limits:
+          cpus: "8"
+          memory: 8G
+        reservations:
+          memory: 4G
+    # GPU support: use docker-compose.gpu.yml override instead
+    # docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile infra up -d
     networks:
       - playground-network
 
@@ -92,6 +97,38 @@ services:
       - "16686:16686" # Jaeger UI
       - "4317:4317"   # OTLP gRPC
       - "4318:4318"   # OTLP HTTP
+    networks:
+      - playground-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: playground-redis
+    profiles: ["infra", "full"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - playground-network
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    container_name: playground-keycloak
+    profiles: ["infra", "full"]
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    command: ["start-dev", "--import-realm"]
+    ports:
+      - "8180:8080"
+    volumes:
+      - ./keycloak:/opt/keycloak/data/import
     networks:
       - playground-network
 
@@ -180,6 +217,24 @@ services:
     networks:
       - playground-network
 
+  gateway:
+    build:
+      context: ..
+      dockerfile: infra/dockerfiles/Gateway.Dockerfile
+    container_name: playground-gateway
+    profiles: ["full"]
+    environment:
+      ASPNETCORE_ENVIRONMENT: Docker
+      ASPNETCORE_URLS: http://+:8080
+    ports:
+      - "5000:8080"
+    depends_on:
+      - ordering-api
+      - invoicing-api
+      - customers-api
+    networks:
+      - playground-network
+
 networks:
   playground-network:
     driver: bridge
@@ -189,3 +244,4 @@ volumes:
   rabbitmq_data:
   qdrant_data:
   ollama_data:
+  redis_data:
