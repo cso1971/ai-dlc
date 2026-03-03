@@ -37,16 +37,14 @@ foreach ($coll in @("orders", "customers")) {
 }
 # --- Redis ---
 Write-Host "`nRedis: flushing projection keys..." -ForegroundColor Yellow
-$redisResult = docker exec playground-redis redis-cli --scan --pattern "projections:*" 2>&1
+$luaScript = "local keys = redis.call('KEYS','projections:*'); if #keys > 0 then return redis.call('DEL', unpack(keys)) else return 0 end"
+$redisResult = docker exec playground-redis redis-cli EVAL $luaScript 0 2>&1
 if ($LASTEXITCODE -ne 0) {
     Write-Host "  Redis not reachable. Is playground-redis running? (docker ps)" -ForegroundColor Red
 } else {
-    $keys = $redisResult -split "`n" | Where-Object { $_ -ne "" }
-    if ($keys.Count -gt 0) {
-        foreach ($key in $keys) {
-            docker exec playground-redis redis-cli DEL $key | Out-Null
-        }
-        Write-Host "  Deleted $($keys.Count) projection keys." -ForegroundColor Green
+    $deleted = [int]($redisResult -replace '\D', '')
+    if ($deleted -gt 0) {
+        Write-Host "  Deleted $deleted projection keys." -ForegroundColor Green
     } else {
         Write-Host "  No projection keys found (skip)." -ForegroundColor Gray
     }
