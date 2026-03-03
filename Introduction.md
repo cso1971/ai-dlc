@@ -5,7 +5,9 @@ We're not introducing an alternative framework to Agile, nor proposing an organi
 
 What we're doing is simpler, yet potentially far more impactful: we're observing how **the systemic adoption of AI is reshaping the software lifecycle**.
 
-And we're doing it with a clear goal: to provide a structured answer to the questions that every Team Head and Delivery Head has started asking themselves. Questions that go beyond team efficiency — they touch on the responsibility of guiding people's growth paths and the evolution of their skills. This is the natural audience for this work.
+And we're doing it with a clear goal: to provide a structured answer to the questions that every Team Head and Delivery Head has started asking themselves. Questions that go beyond team efficiency — they touch on the responsibility of guiding people's growth paths and the evolution of their skills. 
+
+**This is the natural audience for this work — and specifically, all of you: the Team Heads of Business Area 5.**
 
 ## How the way we work has evolved
 
