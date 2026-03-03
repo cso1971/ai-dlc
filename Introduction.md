@@ -1,82 +1,82 @@
-# Introduzione
+# Introduction
 
-Oggi non vi presento un nuovo tool, né una nuova metodologia.
-Non stiamo introducendo un framework alternativo ad Agile, né proponendo una trasformazione organizzativa.
+Today I'm not presenting a new tool, nor a new methodology.
+We're not introducing an alternative framework to Agile, nor proposing an organizational transformation.
 
-Quello che stiamo facendo è più semplice, ma potenzialmente più impattante: stiamo osservando come **l'ingresso sistemico dell'AI modifica il ciclo di vita del software**.
+What we're doing is simpler, yet potentially far more impactful: we're observing how **the systemic adoption of AI is reshaping the software lifecycle**.
 
-E lo stiamo facendo con un obiettivo preciso: dare una risposta strutturata alle domande che ogni Team Head e Delivery Head ha iniziato a porsi. Domande che riguardano non solo l'efficienza dei team, ma anche la responsabilità di guidare il percorso formativo e l'evoluzione delle competenze delle persone. Questa è quindi l'audience naturale di questo lavoro.
+And we're doing it with a clear goal: to provide a structured answer to the questions that every Team Head and Delivery Head has started asking themselves. Questions that go beyond team efficiency — they touch on the responsibility of guiding people's growth paths and the evolution of their skills. This is the natural audience for this work.
 
-## L'evoluzione del nostro modo di lavorare
+## How the way we work has evolved
 
-Negli ultimi vent'anni abbiamo visto evolvere il nostro modo di lavorare:
-dal modello sequenziale ad Agile, da Agile a DevOps, dall'integrazione continua alla delivery continua.
-Ogni passaggio ha ridotto la latenza tra decisione e valore.
+Over the past twenty years, we've watched our way of working evolve:
+from waterfall to Agile, from Agile to DevOps, from continuous integration to continuous delivery.
+Each step reduced the latency between decision and value.
 
-**L'AI introduce qualcosa di diverso.**
+**AI introduces something fundamentally different.**
 
-Non è solo automazione.
-Non è solo velocità.
-È un **attore cognitivo** nel processo.
+It's not just automation.
+It's not just speed.
+It's a **cognitive actor** in the process.
 
-Un sistema capace di:
+A system capable of:
 
-- generare requisiti,
-- proporre architetture,
-- scrivere codice,
-- produrre test,
-- sintetizzare documentazione.
+- generating requirements,
+- proposing architectures,
+- writing code,
+- producing tests,
+- synthesizing documentation.
 
-Questo cambia una dinamica fondamentale:
-non siamo più solo noi a produrre artefatti.
-**Noi produciamo direzione, e l'AI produce varianti.**
-L'artefatto finale è l'outcome della collaborazione tra queste due azioni: intenzionalità umana e generazione automatica.
+This changes a fundamental dynamic:
+we are no longer the only ones producing artifacts.
+**We produce direction; AI produces variants.**
+The final artifact is the outcome of the collaboration between these two forces: human intentionality and automated generation.
 
-## La domanda giusta
+## The right question
 
-La domanda quindi non è:
-> *"Quali tool adottiamo?"*
+So the question is not:
+> *"Which tools should we adopt?"*
 
-La domanda è:
-> *"Come cambia il ciclo di vita quando la generazione di opzioni non è più un vincolo?"*
+The question is:
+> *"How does the lifecycle change when generating options is no longer a constraint?"*
 
 ## SCAILE – Smart Cycle AI Enhanced Lightweight Software Engineering
 
-SCAILE è un termine definito a livello aziendale. Il nostro effort si colloca immediatamente sotto questa cornice: non stiamo definendo il modello, ma esplorandone concretamente le implicazioni operative lungo il ciclo di vita e osservando come le persone coinvolte debbano adattare il proprio modo di lavorare, le proprie responsabilità e le proprie competenze in questo nuovo contesto.
+SCAILE is a term defined at the corporate level. Our effort sits directly within this framework: we're not defining the model — we're concretely exploring its operational implications across the software lifecycle, and observing how the people involved need to adapt their way of working, their responsibilities, and their skills in this new context.
 
-Non è un framework.
-Non è un prodotto.
-Non è un progetto di automazione.
+It's not a framework.
+It's not a product.
+It's not an automation project.
 
-È un **laboratorio controllato**.
-Un progetto volutamente realistico, sufficientemente articolato da coprire tutte le fasi del ciclo di vita – dall'analisi alla delivery – nel quale stiamo inserendo l'AI come parte attiva del processo.
+It's a **controlled laboratory**.
+A deliberately realistic project, complex enough to cover every phase of the lifecycle — from analysis to delivery — where we are embedding AI as an active participant in the process.
 
-## Cosa stiamo osservando
+## What we're observing
 
-Non stiamo costruendo tool.
-Li stiamo usando.
-E soprattutto stiamo osservando cosa succede:
+We're not building tools.
+We're using them.
+And above all, we're watching what happens:
 
-- dove accelera davvero,
-- dove introduce rumore,
-- dove aumenta qualità,
-- dove aumenta rischio.
+- where it truly accelerates,
+- where it introduces noise,
+- where it raises quality,
+- where it raises risk.
 
-Quello che stiamo studiando non è la produttività individuale.
-È l'**equilibrio tra velocità, controllo e responsabilità**.
+What we're studying is not individual productivity.
+It's the **balance between speed, control, and accountability**.
 
-Perché l'AI non elimina complessità.
-**La sposta.**
+Because AI doesn't eliminate complexity.
+**It shifts it.**
 
-Sposta il valore:
+It shifts value:
 
-- dalla scrittura alla **validazione**,
-- dall'esecuzione alla **selezione**,
-- dalla produzione alla **governance**.
+- from writing to **validation**,
+- from execution to **selection**,
+- from production to **governance**.
 
-## Prossimi passi
+## What's next
 
-Nei prossimi minuti vi mostro cosa stiamo osservando fase per fase, quali pattern stanno emergendo e quali domande organizzative si stanno aprendo.
+In the next few minutes, I'll walk you through what we're observing phase by phase, which patterns are emerging, and which organizational questions are opening up.
 
-L'obiettivo non è decidere oggi *"cosa adottare"*.
-L'obiettivo è capire **come sta cambiando il nostro modo di costruire software** — prima che sia il cambiamento a decidere per noi.
+The goal is not to decide today *"what to adopt"*.
+The goal is to understand **how the way we build software is changing** — before the change decides for us.
