@@ -1,12 +1,14 @@
 {
-	"name": "adesso-suspmi",
+	"name": "scaile",
 	"private": true,
 	"type": "module",
 	"scripts": {
 		"build": "pnpm -C packages/n8n-nodes-refinement build",
-		"docker:up": "docker compose up --build -d",
-		"docker:down": "docker compose down",
-		"docker:down:force": "docker compose down -v --remove-orphans",
+		"docker:infra": "docker compose up --build -d",
+		"docker:app": "docker compose --profile app up --build -d",
+		"docker:up": "docker compose --profile app up --build -d",
+		"docker:down": "docker compose --profile app down",
+		"docker:down:force": "docker compose --profile app down -v --remove-orphans",
 		"access-token:gitlab": "pnpm tsx scripts/access-token-gitlab.mts",
 		"access-token:n8n": "pnpm tsx scripts/access-token-n8n.mts",
 		"setup:gitlab": "pnpm tsx scripts/setup-gitlab.mts",

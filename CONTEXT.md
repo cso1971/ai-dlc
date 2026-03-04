@@ -483,19 +483,24 @@ cd scaile
 cp .env.example .env
 # Editare .env con ANTHROPIC_API_KEY
 
-# 2. Avvio infrastruttura
-docker compose up -d
+# 2. Avvio infrastruttura (solo GitLab + Runner)
+pnpm docker:infra
 
 # 3. Setup GitLab (dopo che GitLab è healthy ~2-3 min)
+#    Crea gruppo, repo, labels, board, webhook, runner e bot token
+#    Il bot token viene scritto automaticamente in .env
 pnpm install
-pnpm run setup-gitlab
+pnpm run setup:gitlab
 
-# 4. Accesso
+# 4. Avvio app (webhook + log-viewer, ora con bot token corretto)
+pnpm docker:app
+
+# 5. Accesso
 # GitLab:     http://localhost:8090 (root / <GITLAB_ROOT_PASSWORD>)
 # Log Viewer: http://localhost:3000
 # Webhook:    http://localhost:8000/health
 
-# 5. Test workflow
+# 6. Test workflow
 # Creare un epic in GitLab → aggiungere label "Breakdown" → osservare nel Log Viewer
 ```
 

@@ -89,6 +89,7 @@ services:
   webhook:
     build:
       context: ./packages/webhook-server
+    profiles: [app]
     ports:
       - "8000:8000"
     depends_on:
@@ -118,6 +119,7 @@ services:
       context: ./packages/log-viewer
       args:
         VITE_WEBHOOK_URL: http://localhost:8000
+    profiles: [app]
     ports:
       - "3000:3000"
     depends_on:
