@@ -453,10 +453,10 @@ DistributedPlayground/
 - Session detail con log streaming real-time via WebSocket
 - Auto-refresh ogni 5s via React Query
 
-### Sample Repository (`sample-repository/`)
-- Progetto TypeScript di esempio (calculator, converter)
-- `.gitlab-ci.yml` con 3 stage (build, test, deploy-staging)
-- Pushato su GitLab dallo script di setup
+### Target Repository
+- Usa il progetto **Distributed Playground** dalla root del monorepo (`../distributed-playground/`)
+- .NET 9 microservizi + AI (Ordering, Customers, AI.Processor, Orchestrator, Projections)
+- Pushato su GitLab dallo script di setup via `git push`
 
 ### Scripts (`scripts/`)
 | Script | Scopo |
@@ -521,7 +521,7 @@ scaile/
 │   │   ├── Dockerfile
 │   │   └── nginx.conf
 │   └── n8n-nodes-refinement/    ← Custom n8n node (opzionale, non usato)
-├── sample-repository/           ← Progetto TypeScript di esempio
+├── (no sample-repository)       ← usa ../distributed-playground/ dal monorepo
 ├── scripts/
 │   ├── setup-gitlab.mts
 │   └── access-token-gitlab.mts

@@ -24,7 +24,8 @@ const FORCE = process.argv.includes("--force");
 
 const api = (path: string) => `${GITLAB_URL}/api/v4${path}`;
 
-const SAMPLE_REPO_DIR = join(import.meta.dirname, "..", "sample-repository");
+const DISTRIBUTED_PLAYGROUND_DIR = join(import.meta.dirname, "..", "..", "distributed-playground");
+const PROJECT_NAME = "distributed-playground";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -136,13 +137,13 @@ try {
 }
 
 // ---------------------------------------------------------------------------
-// 4. Create sample-repository project and push code
+// 4. Create distributed-playground project and push code via git
 // ---------------------------------------------------------------------------
 if (FORCE) {
-	console.log("--force: deleting existing sample-repository project...");
+	console.log(`--force: deleting existing ${PROJECT_NAME} project...`);
 	try {
 		const projects = await gitlabGet<{ id: number }[]>(
-			`/groups/${group.id}/projects?search=sample-repository`,
+			`/groups/${group.id}/projects?search=${PROJECT_NAME}`,
 		);
 		for (const p of projects) {
 			await gitlabDelete(`/projects/${p.id}`);
@@ -155,11 +156,11 @@ if (FORCE) {
 	}
 }
 
-console.log("Creating project: sample-repository");
+console.log(`Creating project: ${PROJECT_NAME}`);
 let sampleProject: { id: number; web_url: string };
 try {
 	sampleProject = await gitlabPost(`/projects`, {
-		name: "sample-repository",
+		name: PROJECT_NAME,
 		namespace_id: group.id,
 		visibility: "internal",
 		initialize_with_readme: false,
@@ -167,7 +168,7 @@ try {
 } catch (err: any) {
 	if (err.message.includes("has already been taken")) {
 		const projects = await gitlabGet<{ id: number; web_url: string }[]>(
-			`/groups/${group.id}/projects?search=sample-repository`,
+			`/groups/${group.id}/projects?search=${PROJECT_NAME}`,
 		);
 		sampleProject = projects[0];
 		console.log("Project already exists, reusing.");
@@ -176,44 +177,39 @@ try {
 	}
 }
 
-// Push sample-repository files via GitLab API commits endpoint
-console.log("Pushing sample-repository files...");
+// Push distributed-playground code via git
+console.log(`Pushing ${PROJECT_NAME} code via git...`);
 
-const filesToPush = [
-	{ path: "src/calculator.ts", localPath: "src/calculator.ts" },
-	{ path: "src/converter.ts", localPath: "src/converter.ts" },
-	{ path: "src/index.ts", localPath: "src/index.ts" },
-	{ path: "tsconfig.json", localPath: "tsconfig.json" },
-	{ path: "package.json", localPath: "package.json" },
-	{ path: ".gitlab-ci.yml", localPath: ".gitlab-ci.yml" },
-];
-
-const actions = filesToPush.map((f) => ({
-	action: "create" as const,
-	file_path: f.path,
-	content: readFileSync(join(SAMPLE_REPO_DIR, f.localPath), "utf-8"),
-}));
+// Build the GitLab push URL with root credentials
+const gitlabPushUrl = `${GITLAB_URL.replace("://", `://root:${process.env.GITLAB_ROOT_PASSWORD || "changeme"}@`)}/suspmi/${PROJECT_NAME}.git`;
 
 try {
-	await gitlabPost(`/projects/${sampleProject.id}/repository/commits`, {
-		branch: "main",
-		commit_message: "Initial commit: TypeScript sample project with CI/CD",
-		actions,
-	});
-	console.log("  Files pushed successfully.");
+	// Initialize a temporary git repo from the distributed-playground folder and push to GitLab
+	const tmpDir = join(import.meta.dirname, "..", ".tmp-git-push");
+	await $`rm -rf ${tmpDir}`;
+	await $`cp -r ${DISTRIBUTED_PLAYGROUND_DIR} ${tmpDir}`;
+
+	// Init a fresh git repo and push all files
+	await $`cd ${tmpDir} && git init -b main && git add -A && git commit -m "Initial commit: Distributed Playground (.NET microservices + AI)"`;
+	await $`cd ${tmpDir} && git remote add gitlab ${gitlabPushUrl} && git push -u gitlab main --force`;
+
+	// Cleanup
+	await $`rm -rf ${tmpDir}`;
+	console.log("  Code pushed successfully.");
 } catch (err: any) {
-	if (
-		err.message.includes("A file with this name already exists") ||
-		err.message.includes("already exists")
-	) {
-		console.log("  Files already exist, skipping push.");
+	// Cleanup on error too
+	const tmpDir = join(import.meta.dirname, "..", ".tmp-git-push");
+	await $`rm -rf ${tmpDir}`.catch(() => {});
+
+	if (err.message.includes("already exists") || err.message.includes("up-to-date")) {
+		console.log("  Code already up-to-date, skipping push.");
 	} else {
-		console.warn(`  Warning pushing files: ${err.message}`);
+		console.warn(`  Warning pushing code: ${err.message}`);
 	}
 }
 
 // ---------------------------------------------------------------------------
-// 5. Create labels for the workflow stages (on sample-repository)
+// 5. Create labels for the workflow stages
 // ---------------------------------------------------------------------------
 const workflowLabels = [
 	{ name: "Requirements", color: "#dc143c", description: "Stage 1: Epic requirements (HITL)" },
@@ -226,7 +222,7 @@ const workflowLabels = [
 	{ name: "Done", color: "#69d100", description: "Stage 8: Completed" },
 ];
 
-console.log("Creating workflow labels on sample-repository...");
+console.log(`Creating workflow labels on ${PROJECT_NAME}...`);
 for (const label of workflowLabels) {
 	try {
 		await gitlabPost(`/projects/${sampleProject.id}/labels`, label);
@@ -262,7 +258,7 @@ for (const label of typeLabels) {
 }
 
 // ---------------------------------------------------------------------------
-// 6. Create issue board with workflow lanes (on sample-repository)
+// 6. Create issue board with workflow lanes
 // ---------------------------------------------------------------------------
 console.log("Creating workflow board...");
 let board: { id: number };
@@ -322,10 +318,10 @@ for (const labelName of boardLaneOrder) {
 }
 
 // ---------------------------------------------------------------------------
-// 7. Register webhooks on sample-repository
+// 7. Register webhooks
 //    First clean up any stale webhooks, then register the current one.
 // ---------------------------------------------------------------------------
-console.log("Registering webhooks on sample-repository...");
+console.log(`Registering webhooks on ${PROJECT_NAME}...`);
 const desiredWebhookUrl = "http://webhook:8000/webhook/gitlab";
 
 // Remove all existing webhooks (cleans up stale /webhook/breakdown, n8n, duplicates, etc.)
@@ -398,8 +394,8 @@ if (runnerToken) {
 			--clone-url http://gitlab:80 \
 			--token ${runnerToken} \
 			--executor docker \
-			--docker-image node:22-alpine \
-			--docker-network-mode adesso-suspmi_devops \
+			--docker-image mcr.microsoft.com/dotnet/sdk:9.0 \
+			--docker-network-mode scaile_devops \
 			--docker-pull-policy if-not-present`;
 		console.log("  Runner registered successfully.");
 
@@ -476,7 +472,7 @@ try {
 // ---------------------------------------------------------------------------
 console.log("\n=== Setup Complete ===");
 console.log(`Group:            ${group.web_url}`);
-console.log(`Sample Repo:      ${sampleProject.web_url}`);
+console.log(`Project:          ${sampleProject.web_url}`);
 console.log(`Workflow Board:   ${sampleProject.web_url}/-/boards/${board.id}`);
 console.log(`Runner:           ${runnerToken ? "registered (docker executor)" : "not registered"}`);
 console.log(`Bot token:        ${botToken ? "created (workflow-bot)" : "not created"}`);
