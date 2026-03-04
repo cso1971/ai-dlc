@@ -5,7 +5,6 @@ import { useSessionStream } from "../useSessionStream";
 
 interface Props {
   sessionId: string;
-  onSelectSession?: (sessionId: string) => void;
 }
 
 function formatTs(iso: string) {
@@ -19,7 +18,7 @@ function formatTs(iso: string) {
   return `${hms}.${ms}`;
 }
 
-export default function SessionDetail({ sessionId, onSelectSession }: Props) {
+export default function SessionDetail({ sessionId }: Props) {
   const { data: session, isLoading } = useSession(sessionId);
   const isRunning = session?.status === "running";
   const stream = useSessionStream(sessionId, isRunning);
