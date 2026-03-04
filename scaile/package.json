@@ -1,0 +1,21 @@
+{
+	"name": "adesso-suspmi",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"build": "pnpm -C packages/n8n-nodes-refinement build",
+		"docker:up": "docker compose up --build -d",
+		"docker:down": "docker compose down",
+		"docker:down:force": "docker compose down -v --remove-orphans",
+		"access-token:gitlab": "pnpm tsx scripts/access-token-gitlab.mts",
+		"access-token:n8n": "pnpm tsx scripts/access-token-n8n.mts",
+		"setup:gitlab": "pnpm tsx scripts/setup-gitlab.mts",
+		"setup:n8n": "pnpm tsx scripts/setup-n8n-workflow.mts",
+		"bootstrap": "pnpm build && pnpm up && echo 'Waiting for GitLab to boot (~3-5 min), then run: pnpm setup:gitlab && pnpm setup:n8n'"
+	},
+	"devDependencies": {
+		"dotenv": "^17.3.1",
+		"tsx": "^4.21.0",
+		"zx": "^8.8.5"
+	}
+}

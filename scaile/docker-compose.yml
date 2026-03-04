@@ -1,0 +1,139 @@
+services:
+  gitlab:
+    image: gitlab/gitlab-ce:latest
+    hostname: gitlab
+    ports:
+      - "8090:80"
+      - "2232:22"
+    volumes:
+      - gitlab_config:/etc/gitlab
+      - gitlab_logs:/var/log/gitlab
+      - gitlab_data:/var/opt/gitlab
+    shm_size: "256m"
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'http://localhost:8090'
+        nginx['listen_port'] = 80
+        nginx['listen_https'] = false
+        puma['worker_processes'] = 0
+        prometheus_monitoring['enable'] = false
+        gitlab_exporter['enable'] = false
+        node_exporter['enable'] = false
+        redis_exporter['enable'] = false
+        postgres_exporter['enable'] = false
+        pgbouncer_exporter['enable'] = false
+        alertmanager['enable'] = false
+        gitlab_rails['allow_local_requests_from_web_hooks_and_services'] = true
+      GITLAB_ROOT_PASSWORD: ${GITLAB_ROOT_PASSWORD}
+    networks:
+      - devops
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/-/readiness"]
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 120s
+
+  # n8n-postgres:
+  #   image: postgres:16
+  #   environment:
+  #     POSTGRES_DB: n8n
+  #     POSTGRES_USER: n8n
+  #     POSTGRES_PASSWORD: ${N8N_POSTGRES_PASSWORD}
+  #   volumes:
+  #     - n8n_postgres_data:/var/lib/postgresql/data
+  #   networks:
+  #     - devops
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U n8n"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #
+  # n8n:
+  #   image: n8nio/n8n:latest
+  #   ports:
+  #     - "5678:5678"
+  #   depends_on:
+  #     n8n-postgres:
+  #       condition: service_healthy
+  #     gitlab:
+  #       condition: service_started
+  #   environment:
+  #     DB_TYPE: postgresdb
+  #     DB_POSTGRESDB_HOST: n8n-postgres
+  #     DB_POSTGRESDB_PORT: 5432
+  #     DB_POSTGRESDB_DATABASE: n8n
+  #     DB_POSTGRESDB_USER: n8n
+  #     DB_POSTGRESDB_PASSWORD: ${N8N_POSTGRES_PASSWORD}
+  #     N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+  #     WEBHOOK_URL: http://localhost:5678/
+  #     N8N_CUSTOM_EXTENSIONS: /custom-nodes
+  #   volumes:
+  #     - n8n_data:/home/node/.n8n
+  #     - ./packages/n8n-nodes-refinement/dist:/custom-nodes/n8n-nodes-refinement
+  #   networks:
+  #     - devops
+
+  gitlab-runner:
+    image: gitlab/gitlab-runner:latest
+    depends_on:
+      gitlab:
+        condition: service_healthy
+    volumes:
+      - runner_config:/etc/gitlab-runner
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - devops
+
+  webhook:
+    build:
+      context: ./packages/webhook-server
+    ports:
+      - "8000:8000"
+    depends_on:
+      gitlab:
+        condition: service_healthy
+    volumes:
+      - webhook_sessions:/app/sessions
+    environment:
+      GITLAB_TOKEN: ${GITLAB_TOKEN}
+      GITLAB_BOT_TOKEN: ${GITLAB_BOT_TOKEN}
+      GITLAB_API_URL: http://gitlab:80/api/v4
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      TRIGGER_LABEL: Breakdown
+      SESSIONS_DIR: /app/sessions
+    networks:
+      - devops
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  log-viewer:
+    build:
+      context: ./packages/log-viewer
+      args:
+        VITE_WEBHOOK_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      webhook:
+        condition: service_healthy
+    networks:
+      - devops
+
+volumes:
+  gitlab_config:
+  gitlab_logs:
+  gitlab_data:
+  runner_config:
+  webhook_sessions:
+  # n8n_postgres_data:
+  # n8n_data:
+
+networks:
+  devops:
+    driver: bridge

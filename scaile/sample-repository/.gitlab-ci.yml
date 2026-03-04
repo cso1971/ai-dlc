@@ -1,0 +1,37 @@
+stages:
+  - build
+  - test
+  - deploy
+
+build:
+  stage: build
+  image: node:22-alpine
+  script:
+    - npm install
+    - npm run build
+  artifacts:
+    paths:
+      - dist/
+      - node_modules/
+
+test:
+  stage: test
+  image: node:22-alpine
+  dependencies:
+    - build
+  script:
+    - npm run test
+
+deploy-staging:
+  stage: deploy
+  image: alpine:latest
+  dependencies:
+    - build
+  script:
+    - echo "Deploying to staging environment..."
+    - echo "Deployed version $(cat package.json | grep version | head -1 | tr -d ' \",' | cut -d ':' -f2)"
+  environment:
+    name: staging
+  only:
+    - main
+    - merge_requests
