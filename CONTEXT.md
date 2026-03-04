@@ -1,9 +1,11 @@
 # 🧠 CONTEXT.md - Session Summary
 
-> Questo file contiene il contesto e la cronologia delle decisioni prese durante lo sviluppo del progetto.
-> Ultimo aggiornamento: 2026-02-20
+> Questo file contiene il contesto e la cronologia delle decisioni prese durante lo sviluppo dei progetti nel monorepo **ai-dlc**.
+> Ultimo aggiornamento: 2026-03-04
 
 ---
+
+# Progetto 1: Distributed Playground
 
 ## 📋 Panoramica Progetto
 
@@ -309,4 +311,224 @@ DistributedPlayground/
 ├── README.md
 ├── CONTEXT.md          ← Questo file
 └── .cursorrules        ← Regole per Cursor AI
+```
+
+---
+---
+
+# Progetto 2: Scaile
+
+## 📋 Panoramica Progetto
+
+**Scaile** è una piattaforma di automazione del workflow di sviluppo software basata su AI, che utilizza Claude Code CLI con GitLab per orchestrare il ciclo di vita completo: da requisiti ad alto livello → user stories → task di sviluppo → implementazione codice → merge request, con gate di approvazione umana (Human-In-The-Loop / HITL) nelle fasi critiche.
+
+---
+
+## 🏗️ Architettura
+
+### Tech Stack
+
+| Layer | Tecnologia |
+|-------|-----------|
+| **Backend** | Python 3.12, FastAPI, Uvicorn |
+| **Frontend** | React 18.3, TypeScript, Vite 6, TanStack Query v5 |
+| **AI Engine** | Claude Code CLI (subprocess con streaming JSON) |
+| **Integrazione** | MCP (Model Context Protocol) → GitLab server |
+| **Infrastruttura** | Docker Compose, GitLab CE, GitLab Runner |
+| **Package Manager** | pnpm 10.28 (workspace) |
+| **Node** | 24 |
+
+### Servizi Docker
+
+| Container | Porta | Uso |
+|-----------|-------|-----|
+| **GitLab** | 8090 | Source control, issue tracking, CI/CD, board |
+| **GitLab Runner** | — | Docker executor per CI/CD pipeline |
+| **Webhook Server** | 8000 | FastAPI: riceve webhook GitLab, orchestra Claude Code CLI |
+| **Log Viewer** | 3000 | React SPA + nginx: monitoraggio sessioni in real-time |
+
+---
+
+## 🔄 Workflow a 8 Stadi
+
+```
+[1. Requirements] → [2. Breakdown] → [3. Refinement] → [4. Ready] → [5. Planned] → [6. Review] → [7. Test] → [8. Done]
+     (HITL)            (AI)            (HITL)           (AI)          (AI)           (HITL)       (HITL)
+```
+
+| Stadio | Attore | Trigger | Azione |
+|--------|--------|---------|--------|
+| **1. Requirements** | PO, BA | Creazione epic | Epic issue con label "Requirements" |
+| **2. Breakdown** | AI (Claude) | Label "Breakdown" → webhook | Legge epic, crea 3–7 user stories con acceptance criteria |
+| **3. Refinement** | PO, BA, DEV | Manuale | Review e raffinamento delle stories |
+| **4. Ready** | AI (Claude) | Label "Ready" → webhook | Clona repo, analizza codebase, crea 2–5 task per story |
+| **5. Planned** | AI (Claude) | Label "Planned" → webhook | Crea git worktree, implementa codice, apre Merge Request |
+| **6. Review** | DEV | PR merge + CI pass | Code review e approvazione |
+| **7. Test** | TESTER | Manuale | Test in staging, verifica acceptance criteria |
+| **8. Done** | — | — | Completato |
+
+### Flusso Dati
+
+```
+[GitLab Issue] ── label change ──→ [Webhook: POST /webhook/gitlab]
+                                          │
+                                    Detect trigger label
+                                    Load prompt template
+                                    Prepare env (clone/worktree)
+                                          │
+                                          ▼
+                                   [Claude Code CLI]
+                                    ├─ MCP tools (GitLab API)
+                                    ├─ File system access
+                                    └─ Git commands
+                                          │
+                                    Stream JSON events
+                                          │
+                                          ▼
+                              [Session Manager] ── WebSocket ──→ [Log Viewer UI]
+                                    │
+                              Persist to disk
+                              (/app/sessions/*.json)
+```
+
+---
+
+## 📝 Decisioni Architetturali
+
+### 1. **Claude Code CLI come subprocess**
+- Invocato via `asyncio.create_subprocess_exec()` con output JSON streaming
+- Accesso a MCP server, filesystem, git e reasoning AI in un unico tool
+- Flag `--dangerously-skip-permissions` (ambiente trusted)
+- Disaccoppia orchestrazione workflow da logica AI
+
+### 2. **Persistenza sessioni (In-Memory + Disk)**
+- Sessioni attive in `SessionManager._active` (dict in memoria)
+- Sessioni completate flushed su `/app/sessions/*.json`
+- Debounced flush (2s) per ridurre I/O
+- Sopravvive a restart container; nessun DB esterno richiesto
+
+### 3. **Git Worktree per implementazione (Planned stage)**
+- `git worktree add -b feature/<iid>-<slug> <dir> origin/main`
+- Ogni story isolata su branch separato
+- Cleanup facile dopo merge
+
+### 4. **Clone read-only per analisi (Ready stage)**
+- Clone del repo una volta, fetch su invocazioni successive
+- Analisi codebase senza modifiche
+- Task creati basandosi sulla struttura codice reale
+
+### 5. **Prompt-driven workflow**
+- File `.md` separati per ogni stadio (`breakdown.md`, `ready.md`, `planned.md`)
+- Contengono ruolo, contesto, istruzioni e output attesi
+- Versionati in git, facili da modificare
+
+### 6. **MCP Server per GitLab**
+- Configurato in `.mcp.json` del webhook server
+- Tools: `get_issue`, `create_issue`, `update_issue`, `create_issue_link`, `list_issue_links`, `create_merge_request`
+- Autenticazione via `GITLAB_PERSONAL_ACCESS_TOKEN`
+
+---
+
+## 🛠️ Componenti Principali
+
+### Webhook Server (`packages/webhook-server/`)
+| File | Responsabilità |
+|------|---------------|
+| `main.py` | App FastAPI: middleware, CORS, routes, startup |
+| `webhook_handler.py` | Orchestrazione: detect trigger, prepare env, invoke Claude, stream logs |
+| `session_manager.py` | Tracking sessioni attive + completate, persistenza su disco |
+| `sessions_router.py` | REST + WebSocket API per sessioni |
+| `config.py` | Configurazione ambiente (pydantic-settings) |
+
+### Prompt Templates (`packages/webhook-server/prompts/`)
+| File | Ruolo | Output |
+|------|-------|--------|
+| `breakdown.md` | Senior product owner | 3–7 story issues con acceptance criteria |
+| `ready.md` | Senior technical lead | 2–5 task issues per story (linked come children) |
+| `planned.md` | Senior software engineer | Codice committato + Merge Request creata |
+
+### Log Viewer (`packages/log-viewer/`)
+- Dark-themed terminal UI (JetBrains Mono)
+- Session list (sidebar) con status badges (Running/Success/Error)
+- Session detail con log streaming real-time via WebSocket
+- Auto-refresh ogni 5s via React Query
+
+### Sample Repository (`sample-repository/`)
+- Progetto TypeScript di esempio (calculator, converter)
+- `.gitlab-ci.yml` con 3 stage (build, test, deploy-staging)
+- Pushato su GitLab dallo script di setup
+
+### Scripts (`scripts/`)
+| Script | Scopo |
+|--------|-------|
+| `setup-gitlab.mts` | Bootstrap GitLab: gruppo, repo, labels, board, webhook, runner, bot token |
+| `access-token-gitlab.mts` | Genera personal access token via Rails runner |
+
+---
+
+## 🚀 Quick Start
+
+```bash
+cd scaile
+
+# 1. Configurazione
+cp .env.example .env
+# Editare .env con ANTHROPIC_API_KEY
+
+# 2. Avvio infrastruttura
+docker compose up -d
+
+# 3. Setup GitLab (dopo che GitLab è healthy ~2-3 min)
+pnpm install
+pnpm run setup-gitlab
+
+# 4. Accesso
+# GitLab:     http://localhost:8090 (root / <GITLAB_ROOT_PASSWORD>)
+# Log Viewer: http://localhost:3000
+# Webhook:    http://localhost:8000/health
+
+# 5. Test workflow
+# Creare un epic in GitLab → aggiungere label "Breakdown" → osservare nel Log Viewer
+```
+
+---
+
+## 📁 Struttura Progetto
+
+```
+scaile/
+├── packages/
+│   ├── webhook-server/          ← Python FastAPI + Claude orchestrator
+│   │   ├── src/
+│   │   │   ├── main.py
+│   │   │   ├── config.py
+│   │   │   ├── webhook_handler.py
+│   │   │   ├── session_manager.py
+│   │   │   └── sessions_router.py
+│   │   ├── prompts/
+│   │   │   ├── breakdown.md
+│   │   │   ├── ready.md
+│   │   │   └── planned.md
+│   │   ├── Dockerfile
+│   │   ├── .mcp.json
+│   │   └── requirements.txt
+│   ├── log-viewer/              ← React SPA monitoring
+│   │   ├── src/
+│   │   │   ├── App.tsx
+│   │   │   ├── api.ts
+│   │   │   ├── useSessionStream.ts
+│   │   │   └── components/
+│   │   ├── Dockerfile
+│   │   └── nginx.conf
+│   └── n8n-nodes-refinement/    ← Custom n8n node (opzionale, non usato)
+├── sample-repository/           ← Progetto TypeScript di esempio
+├── scripts/
+│   ├── setup-gitlab.mts
+│   └── access-token-gitlab.mts
+├── docker-compose.yml
+├── package.json                 ← pnpm workspace root
+├── pnpm-workspace.yaml
+├── .mise.toml                   ← Tool versions (Node 24, pnpm 10.28)
+├── .env.example
+└── WORKFLOW.md                  ← Descrizione stadi workflow
 ```
