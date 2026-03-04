@@ -103,18 +103,18 @@ for (let i = 0; i < MAX_RETRIES; i++) {
 // ---------------------------------------------------------------------------
 // 2. Create group
 // ---------------------------------------------------------------------------
-console.log("Creating group: suspmi");
+console.log("Creating group: scaile");
 let group: { id: number; web_url: string };
 try {
 	group = await gitlabPost("/groups", {
-		name: "Suspmi",
-		path: "suspmi",
+		name: "Scaile",
+		path: "scaile",
 		visibility: "internal",
 	});
 } catch (err: any) {
 	if (err.message.includes("has already been taken")) {
 		const groups = await gitlabGet<{ id: number; web_url: string }[]>(
-			"/groups?search=suspmi",
+			"/groups?search=scaile",
 		);
 		group = groups[0];
 		console.log("Group already exists, reusing.");
@@ -181,7 +181,7 @@ try {
 console.log(`Pushing ${PROJECT_NAME} code via git...`);
 
 // Build the GitLab push URL with root credentials
-const gitlabPushUrl = `${GITLAB_URL.replace("://", `://root:${process.env.GITLAB_ROOT_PASSWORD || "changeme"}@`)}/suspmi/${PROJECT_NAME}.git`;
+const gitlabPushUrl = `${GITLAB_URL.replace("://", `://root:${process.env.GITLAB_ROOT_PASSWORD || "changeme"}@`)}/scaile/${PROJECT_NAME}.git`;
 
 try {
 	// Initialize a temporary git repo from the distributed-playground folder and push to GitLab
@@ -354,7 +354,7 @@ try {
 		issues_events: true,
 		merge_requests_events: true,
 		confidential_issues_events: false,
-		note_events: false,
+		note_events: true,
 		enable_ssl_verification: false,
 	});
 	console.log(`  Webhook registered: ${desiredWebhookUrl}`);

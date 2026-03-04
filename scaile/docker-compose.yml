@@ -99,6 +99,7 @@ services:
     environment:
       GITLAB_TOKEN: ${GITLAB_TOKEN}
       GITLAB_BOT_TOKEN: ${GITLAB_BOT_TOKEN}
+      GITLAB_BOT_USERNAME: ${GITLAB_BOT_USERNAME:-}
       GITLAB_API_URL: http://gitlab:80/api/v4
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       TRIGGER_LABEL: Breakdown

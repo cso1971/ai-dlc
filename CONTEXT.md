@@ -363,7 +363,7 @@ DistributedPlayground/
 | **3. Refinement** | PO, BA, DEV | Manuale | Review e raffinamento delle stories |
 | **4. Ready** | AI (Claude) | Label "Ready" → webhook | Clona repo, analizza codebase, crea 2–5 task per story |
 | **5. Planned** | AI (Claude) | Label "Planned" → webhook | Crea git worktree, implementa codice, apre Merge Request |
-| **6. Review** | DEV | PR merge + CI pass | Code review e approvazione |
+| **6. Review** | DEV + AI | Commento su MR → webhook (note event) | Code review; Claude risponde ai commenti: corregge codice, chiede chiarimenti o ringrazia |
 | **7. Test** | TESTER | Manuale | Test in staging, verifica acceptance criteria |
 | **8. Done** | — | — | Completato |
 
@@ -371,8 +371,8 @@ DistributedPlayground/
 
 ```
 [GitLab Issue] ── label change ──→ [Webhook: POST /webhook/gitlab]
-                                          │
-                                    Detect trigger label
+[GitLab MR]    ── note event ────→          │
+                                    Detect trigger label / MR note
                                     Load prompt template
                                     Prepare env (clone/worktree)
                                           │
@@ -424,8 +424,15 @@ DistributedPlayground/
 
 ### 6. **MCP Server per GitLab**
 - Configurato in `.mcp.json` del webhook server
-- Tools: `get_issue`, `create_issue`, `update_issue`, `create_issue_link`, `list_issue_links`, `create_merge_request`
+- Tools: `get_issue`, `create_issue`, `update_issue`, `create_issue_link`, `list_issue_links`, `create_merge_request`, `get_merge_request`, `get_merge_request_diffs`, `create_merge_request_note`
 - Autenticazione via `GITLAB_PERSONAL_ACCESS_TOKEN`
+
+### 7. **MR Comment Review (Review stage)**
+- Webhook `note_events: true` rileva commenti sulle Merge Request
+- **Prevenzione loop infinito** (3 livelli): (1) filtro `bot_username` — ignora commenti del bot stesso, (2) filtro `system: true` — ignora note di sistema GitLab, (3) filtro `action != "create"` — ignora edit/update delle note
+- **Bot username** auto-rilevato all'avvio via `GET /api/v4/user` con bot token; override manuale via `GITLAB_BOT_USERNAME`
+- Claude riceve il commento del reviewer, legge diff MR via MCP, corregge il codice (commit + push sul source branch) oppure chiede chiarimenti, e risponde sulla MR via `create_merge_request_note`
+- Worktree creato su branch esistente (a differenza del Planned stage che crea un nuovo branch)
 
 ---
 
@@ -434,8 +441,8 @@ DistributedPlayground/
 ### Webhook Server (`packages/webhook-server/`)
 | File | Responsabilità |
 |------|---------------|
-| `main.py` | App FastAPI: middleware, CORS, routes, startup |
-| `webhook_handler.py` | Orchestrazione: detect trigger, prepare env, invoke Claude, stream logs |
+| `main.py` | App FastAPI: middleware, CORS, routes, startup, bot username auto-detection |
+| `webhook_handler.py` | Orchestrazione: detect trigger/MR note, prepare env, invoke Claude, stream logs |
 | `session_manager.py` | Tracking sessioni attive + completate, persistenza su disco |
 | `sessions_router.py` | REST + WebSocket API per sessioni |
 | `config.py` | Configurazione ambiente (pydantic-settings) |
@@ -446,6 +453,7 @@ DistributedPlayground/
 | `breakdown.md` | Senior product owner | 3–7 story issues con acceptance criteria |
 | `ready.md` | Senior technical lead | 2–5 task issues per story (linked come children) |
 | `planned.md` | Senior software engineer | Codice committato + Merge Request creata |
+| `review.md` | Senior software engineer | Risposta a commento MR: fix codice o chiarimento |
 
 ### Log Viewer (`packages/log-viewer/`)
 - Dark-themed terminal UI (JetBrains Mono)

@@ -1,0 +1,27 @@
+{
+  "name": "n8n-nodes-refinement",
+  "version": "0.1.0",
+  "description": "n8n node for AI-powered refinement coaching on GitLab issues",
+  "license": "MIT",
+  "main": "dist/nodes/RefinementReasoner/RefinementReasoner.node.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "credentials": [
+      "dist/credentials/OpenAiCompatibleApi.credentials.js"
+    ],
+    "nodes": [
+      "dist/nodes/RefinementReasoner/RefinementReasoner.node.js"
+    ]
+  },
+  "devDependencies": {
+    "n8n-workflow": "^1.64.0",
+    "typescript": "^5.6.0"
+  },
+  "peerDependencies": {
+    "n8n-workflow": "^1.64.0"
+  }
+}
