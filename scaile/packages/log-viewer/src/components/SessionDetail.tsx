@@ -122,6 +122,25 @@ export default function SessionDetail({ sessionId }: Props) {
         </div>
       </div>
 
+      {/* Error summary banner */}
+      {status === "error" && session.result_summary && (
+        <div
+          style={{
+            padding: "10px 20px",
+            background: "#3a1111",
+            borderBottom: "1px solid #5a2020",
+            color: "#f88",
+            fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
+            fontSize: 12,
+            lineHeight: 1.5,
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-all",
+          }}
+        >
+          <strong style={{ color: "#f44" }}>Error:</strong> {session.result_summary}
+        </div>
+      )}
+
       {/* Log output */}
       <div
         style={{

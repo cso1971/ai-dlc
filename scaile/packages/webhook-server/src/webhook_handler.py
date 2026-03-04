@@ -347,12 +347,24 @@ async def invoke_claude(
     stderr_text = "\n".join(stderr_lines)
 
     if timed_out:
+        if session and stderr_lines:
+            session.append_line("[stderr] --- Claude CLI stderr ---")
+            for sl in stderr_lines[-20:]:
+                session.append_line(f"[stderr] {sl}")
         return {"error": f"timeout after {settings.claude_timeout_minutes} minutes", "stderr": stderr_text}
 
     if proc.returncode != 0:
         logger.error("Claude CLI exited with code %d", proc.returncode)
         logger.error("Claude CLI stderr:\n%s", stderr_text or "(empty)")
-        return {"error": f"exit {proc.returncode}", "stderr": stderr_text}
+        if session and stderr_lines:
+            session.append_line(f"[stderr] --- Claude CLI exited with code {proc.returncode} ---")
+            for sl in stderr_lines[-20:]:
+                session.append_line(f"[stderr] {sl}")
+        error_detail = f"exit {proc.returncode}"
+        if stderr_text:
+            # Include last 500 chars of stderr in the error for result_summary
+            error_detail += f": {stderr_text[-500:]}"
+        return {"error": error_detail, "stderr": stderr_text}
 
     logger.info("Claude CLI exited successfully (code 0)")
 
@@ -610,10 +622,11 @@ async def handle_mr_note_webhook(note_info: dict, settings: Settings) -> None:
             summary = result.get("result", json.dumps(result))[:500]
             logger.info("MR review complete for !%d: %s", mr_iid, summary)
             session.finish("success", summary)
-    except Exception:
+    except Exception as exc:
         logger.exception("Unhandled error processing MR note webhook")
         if "session" in locals():
-            session.finish("error", "Unhandled exception")
+            session.append_line(f"[error] Unhandled exception: {exc}")
+            session.finish("error", f"Unhandled exception: {exc}")
 
 
 async def handle_issue_webhook(payload: dict, trigger_label: str, settings: Settings) -> None:
@@ -693,7 +706,8 @@ async def handle_issue_webhook(payload: dict, trigger_label: str, settings: Sett
                 trigger_label, issue_iid, summary,
             )
             session.finish("success", summary)
-    except Exception:
+    except Exception as exc:
         logger.exception("Unhandled error processing issue webhook [stage=%s]", trigger_label)
         if "session" in locals():
-            session.finish("error", "Unhandled exception")
+            session.append_line(f"[error] Unhandled exception: {exc}")
+            session.finish("error", f"Unhandled exception: {exc}")
