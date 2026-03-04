@@ -46,6 +46,27 @@ export function useSession(sessionId: string | null) {
   });
 }
 
+export async function stopSession(sessionId: string): Promise<void> {
+  const res = await fetch(`${BASE_URL}/sessions/${sessionId}/stop`, {
+    method: "POST",
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `HTTP ${res.status}`);
+  }
+}
+
+export async function restartSession(sessionId: string): Promise<{ status: string; original_session_id: string }> {
+  const res = await fetch(`${BASE_URL}/sessions/${sessionId}/restart`, {
+    method: "POST",
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
 export function wsUrl(sessionId: string): string {
   const http = BASE_URL;
   const ws = http.replace(/^http/, "ws");

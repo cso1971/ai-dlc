@@ -1,9 +1,11 @@
-import { useEffect, useRef } from "react";
-import { type LogLine, useSession } from "../api";
+import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { type LogLine, useSession, stopSession, restartSession } from "../api";
 import { useSessionStream } from "../useSessionStream";
 
 interface Props {
   sessionId: string;
+  onSelectSession?: (sessionId: string) => void;
 }
 
 function formatTs(iso: string) {
@@ -17,11 +19,13 @@ function formatTs(iso: string) {
   return `${hms}.${ms}`;
 }
 
-export default function SessionDetail({ sessionId }: Props) {
+export default function SessionDetail({ sessionId, onSelectSession }: Props) {
   const { data: session, isLoading } = useSession(sessionId);
   const isRunning = session?.status === "running";
   const stream = useSessionStream(sessionId, isRunning);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const queryClient = useQueryClient();
+  const [actionPending, setActionPending] = useState(false);
 
   const lines: LogLine[] = isRunning ? stream.lines : (session?.lines ?? []);
   const status = isRunning ? (stream.done ? stream.status : "running") : session?.status;
@@ -37,22 +41,85 @@ export default function SessionDetail({ sessionId }: Props) {
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       {/* Header */}
       <div style={{ padding: "16px 20px", borderBottom: "1px solid #333", flexShrink: 0 }}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>
-          Issue #{session.issue_iid}: {session.issue_title}
-        </h2>
-        <div style={{ fontSize: 12, color: "#888", marginTop: 4 }}>
-          Session: {session.session_id} &middot; Status:{" "}
-          <span
-            style={{
-              color: status === "running" ? "#fc0" : status === "success" ? "#4f4" : "#f44",
-              fontWeight: 600,
-            }}
-          >
-            {status}
-          </span>
-          {session.finished_at && (
-            <> &middot; Finished: {new Date(session.finished_at).toLocaleTimeString()}</>
-          )}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: 16 }}>
+              Issue #{session.issue_iid}: {session.issue_title}
+            </h2>
+            <div style={{ fontSize: 12, color: "#888", marginTop: 4 }}>
+              Session: {session.session_id} &middot; Status:{" "}
+              <span
+                style={{
+                  color: status === "running" ? "#fc0" : status === "success" ? "#4f4" : "#f44",
+                  fontWeight: 600,
+                }}
+              >
+                {status}
+              </span>
+              {session.finished_at && (
+                <> &middot; Finished: {new Date(session.finished_at).toLocaleTimeString()}</>
+              )}
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+            {status === "running" && (
+              <button
+                disabled={actionPending}
+                onClick={async () => {
+                  setActionPending(true);
+                  try {
+                    await stopSession(sessionId);
+                    queryClient.invalidateQueries({ queryKey: ["sessions"] });
+                    queryClient.invalidateQueries({ queryKey: ["session", sessionId] });
+                  } catch (e) {
+                    console.error("Stop failed:", e);
+                  } finally {
+                    setActionPending(false);
+                  }
+                }}
+                style={{
+                  background: "#d32f2f",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 4,
+                  padding: "6px 14px",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: actionPending ? "not-allowed" : "pointer",
+                  opacity: actionPending ? 0.6 : 1,
+                }}
+              >
+                Stop
+              </button>
+            )}
+            <button
+              disabled={actionPending}
+              onClick={async () => {
+                setActionPending(true);
+                try {
+                  await restartSession(sessionId);
+                  queryClient.invalidateQueries({ queryKey: ["sessions"] });
+                } catch (e) {
+                  console.error("Restart failed:", e);
+                } finally {
+                  setActionPending(false);
+                }
+              }}
+              style={{
+                background: "#e65100",
+                color: "#fff",
+                border: "none",
+                borderRadius: 4,
+                padding: "6px 14px",
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: actionPending ? "not-allowed" : "pointer",
+                opacity: actionPending ? 0.6 : 1,
+              }}
+            >
+              Restart
+            </button>
+          </div>
         </div>
       </div>
 

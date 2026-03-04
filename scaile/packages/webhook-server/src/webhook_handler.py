@@ -292,6 +292,9 @@ async def invoke_claude(
         env=env,
     )
 
+    if session is not None:
+        session.set_process(proc)
+
     result_data: dict = {}
     stderr_lines: list[str] = []
 
@@ -337,6 +340,9 @@ async def invoke_claude(
         proc.kill()
 
     await proc.wait()
+
+    if session is not None:
+        session.set_process(None)
 
     stderr_text = "\n".join(stderr_lines)
 
@@ -557,6 +563,10 @@ async def handle_mr_note_webhook(note_info: dict, settings: Settings) -> None:
             project_id=project_id,
             model=model,
         )
+        session._restart_context = {
+            "type": "mr_note",
+            "note_info": note_info,
+        }
         session.append_line(f"[workflow] MR note review triggered")
         session.append_line(f"[workflow] MR !{mr_iid}: {mr_title}")
         session.append_line(f"[workflow] Reviewer: {reviewer_name}")
@@ -625,6 +635,11 @@ async def handle_issue_webhook(payload: dict, trigger_label: str, settings: Sett
             project_id=project_id,
             model=model,
         )
+        session._restart_context = {
+            "type": "issue",
+            "payload": payload,
+            "trigger_label": trigger_label,
+        }
         session.append_line(f"[workflow] Stage triggered: {trigger_label}")
         session.append_line(f"[workflow] Model: {model}")
         session.append_line(f"[workflow] Using prompt: {prompt_file}")

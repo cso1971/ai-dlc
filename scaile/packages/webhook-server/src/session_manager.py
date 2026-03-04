@@ -31,6 +31,8 @@ class Session:
         default_factory=set, repr=False
     )
     _flush_handle: asyncio.TimerHandle | None = field(default=None, repr=False)
+    _process: asyncio.subprocess.Process | None = field(default=None, repr=False)
+    _restart_context: dict | None = field(default=None, repr=False)
 
     def subscribe(self) -> asyncio.Queue[dict | None]:
         q: asyncio.Queue[dict | None] = asyncio.Queue()
@@ -39,6 +41,23 @@ class Session:
 
     def unsubscribe(self, q: asyncio.Queue[dict | None]) -> None:
         self._subscribers.discard(q)
+
+    def set_process(self, proc: asyncio.subprocess.Process | None) -> None:
+        self._process = proc
+
+    async def kill_process(self) -> bool:
+        """Kill the running subprocess. Returns True if killed, False if not running."""
+        if self._process is None or self._process.returncode is not None:
+            return False
+        try:
+            self._process.kill()
+            await self._process.wait()
+        except ProcessLookupError:
+            pass
+        self._process = None
+        self.append_line("[workflow] Session stopped by user")
+        self.finish("error", "Stopped by user")
+        return True
 
     def append_line(self, text: str) -> None:
         entry = {
