@@ -236,22 +236,42 @@ async def prepare_repo_worktree(
     return worktree_dir, branch_name
 
 
-async def invoke_claude(prompt: str, settings: Settings, session: Session | None = None, model: str | None = None, cwd: str | None = None) -> dict:
-    """Run `claude -p` as a subprocess with streaming output."""
-    cmd = [
-        "claude",
-        "-p",
-        prompt,
-        "--output-format", "stream-json",
-        "--verbose",
-        "--dangerously-skip-permissions",
-        "--max-turns", "30",
-    ]
+async def invoke_claude(
+    prompt: str,
+    settings: Settings,
+    session: Session | None = None,
+    model: str | None = None,
+    cwd: str | None = None,
+    resume_session_id: str | None = None,
+) -> dict:
+    """Run `claude -p` as a subprocess with streaming output.
+
+    If resume_session_id is provided, resumes an existing Claude session
+    instead of starting a new one (used for continuation after max-turns).
+    """
+    if resume_session_id:
+        cmd = [
+            "claude",
+            "--resume", resume_session_id,
+            "-p", prompt,
+            "--output-format", "stream-json",
+            "--verbose",
+            "--dangerously-skip-permissions",
+        ]
+    else:
+        cmd = [
+            "claude",
+            "-p",
+            prompt,
+            "--output-format", "stream-json",
+            "--verbose",
+            "--dangerously-skip-permissions",
+        ]
     if model:
         cmd.extend(["--model", model])
 
     work_dir = cwd or settings.workspace_dir
-    logger.info("Running command: %s", " ".join(cmd[:4]) + " ...")
+    logger.info("Running command: %s", " ".join(cmd[:6]) + " ...")
     logger.info("Working directory: %s", work_dir)
 
     env = {
@@ -261,6 +281,8 @@ async def invoke_claude(prompt: str, settings: Settings, session: Session | None
         "GITLAB_PERSONAL_ACCESS_TOKEN": settings.gitlab_bot_token or settings.gitlab_token,
         "GITLAB_API_URL": settings.gitlab_api_url,
     }
+
+    timeout_sec = settings.claude_timeout_minutes * 60
 
     proc = await asyncio.create_subprocess_exec(
         *cmd,
@@ -301,10 +323,25 @@ async def invoke_claude(prompt: str, settings: Settings, session: Session | None
             stderr_lines.append(line)
             logger.info("[claude stderr] %s", line)
 
-    await asyncio.gather(_drain_stdout(), _drain_stderr())
+    timed_out = False
+    try:
+        await asyncio.wait_for(
+            asyncio.gather(_drain_stdout(), _drain_stderr()),
+            timeout=timeout_sec,
+        )
+    except asyncio.TimeoutError:
+        timed_out = True
+        logger.error("Claude CLI timed out after %d minutes — killing process", settings.claude_timeout_minutes)
+        if session:
+            session.append_line(f"[workflow] TIMEOUT: Claude killed after {settings.claude_timeout_minutes} minutes")
+        proc.kill()
+
     await proc.wait()
 
     stderr_text = "\n".join(stderr_lines)
+
+    if timed_out:
+        return {"error": f"timeout after {settings.claude_timeout_minutes} minutes", "stderr": stderr_text}
 
     if proc.returncode != 0:
         logger.error("Claude CLI exited with code %d", proc.returncode)
@@ -317,6 +354,56 @@ async def invoke_claude(prompt: str, settings: Settings, session: Session | None
         return result_data
 
     return {"error": "no result event received"}
+
+
+MAX_RESUME_ATTEMPTS = 3
+
+
+async def _maybe_resume(
+    result: dict,
+    settings: Settings,
+    session: Session | None,
+    model: str | None,
+    cwd: str | None,
+) -> dict:
+    """If Claude hit max turns, resume the session to let it finish.
+
+    Returns the final result (either the original or from the last resume).
+    """
+    attempts = 0
+    while (
+        result.get("subtype") == "error_max_turns"
+        and attempts < MAX_RESUME_ATTEMPTS
+    ):
+        attempts += 1
+        claude_session_id = result.get("session_id")
+        if not claude_session_id:
+            logger.warning("Max turns reached but no session_id in result — cannot resume")
+            break
+
+        logger.info(
+            "Claude hit max turns (attempt %d/%d) — resuming session %s",
+            attempts, MAX_RESUME_ATTEMPTS, claude_session_id,
+        )
+        if session:
+            session.append_line(
+                f"[workflow] Max turns reached — auto-resuming (attempt {attempts}/{MAX_RESUME_ATTEMPTS})"
+            )
+
+        result = await invoke_claude(
+            prompt="Continue where you left off. Complete the remaining steps from the original instructions.",
+            settings=settings,
+            session=session,
+            model=model,
+            cwd=cwd,
+            resume_session_id=claude_session_id,
+        )
+
+    if result.get("subtype") == "error_max_turns":
+        logger.error("Claude still incomplete after %d resume attempts", MAX_RESUME_ATTEMPTS)
+        result["error"] = f"incomplete after {MAX_RESUME_ATTEMPTS} resume attempts"
+
+    return result
 
 
 def detect_mr_note(payload: dict, bot_username: str) -> dict | None:
@@ -503,6 +590,9 @@ async def handle_mr_note_webhook(note_info: dict, settings: Settings) -> None:
 
         result = await invoke_claude(prompt, settings, session=session, model=model, cwd=work_cwd)
 
+        # Auto-resume if Claude hit max turns without finishing
+        result = await _maybe_resume(result, settings, session, model, work_cwd)
+
         if "error" in result:
             logger.error("MR review failed for !%d: %s", mr_iid, result["error"])
             session.finish("error", result.get("error"))
@@ -571,6 +661,9 @@ async def handle_issue_webhook(payload: dict, trigger_label: str, settings: Sett
                     ))
 
         result = await invoke_claude(prompt, settings, session=session, model=model, cwd=work_cwd)
+
+        # Auto-resume if Claude hit max turns without finishing
+        result = await _maybe_resume(result, settings, session, model, work_cwd)
 
         if "error" in result:
             logger.error(

@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     workspace_dir: str = "/app"
     repos_dir: str = "/home/claude/repos"
     sessions_dir: str = "/app/sessions"
+    claude_timeout_minutes: int = 30
 
     model_config = {"env_file": ".env", "extra": "ignore"}
 
