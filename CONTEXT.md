@@ -496,9 +496,11 @@ pnpm docker:infra
 
 # 3. Setup GitLab (dopo che GitLab è healthy ~2-3 min)
 #    Crea gruppo, repo, labels, board, webhook, runner e bot token
-#    Il bot token viene scritto automaticamente in .env
-pnpm install
-pnpm run setup:gitlab
+#    token user token must be manually updated in .env
+pnpm run access-token:gitlab
+
+# this can be run everytime you want to start from scratch
+pnpm run setup:gitlab --force
 
 # 4. Avvio app (webhook + log-viewer, ora con bot token corretto)
 pnpm docker:app
