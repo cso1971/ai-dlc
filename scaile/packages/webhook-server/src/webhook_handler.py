@@ -466,24 +466,44 @@ def detect_mr_note(payload: dict, bot_username: str) -> dict | None:
     }
 
 
+async def _find_worktree_for_branch(
+    branch_name: str, repo_dir: Path, git_env: dict[str, str],
+) -> Path | None:
+    """Return the path of an existing worktree that has branch_name checked out, or None."""
+    try:
+        output = await _run_git(
+            ["git", "worktree", "list", "--porcelain"], cwd=repo_dir, env=git_env,
+        )
+    except RuntimeError:
+        return None
+
+    current_wt: str | None = None
+    for line in output.splitlines():
+        if line.startswith("worktree "):
+            current_wt = line.split(" ", 1)[1]
+        elif line.startswith("branch ") and current_wt:
+            ref = line.split(" ", 1)[1]  # e.g. refs/heads/feature/foo
+            if ref == f"refs/heads/{branch_name}":
+                return Path(current_wt)
+    return None
+
+
 async def prepare_review_worktree(
     project_path: str,
     branch_name: str,
     settings: Settings,
     session: Session | None = None,
 ) -> Path:
-    """Clone the repo (if needed) and create a worktree on an existing remote branch.
+    """Clone the repo (if needed) and prepare a worktree on an existing remote branch.
 
-    Unlike prepare_repo_worktree, this checks out an existing branch rather than
-    creating a new one — used when Claude needs to push fixes to an MR's source branch.
+    If a worktree for the branch already exists (e.g. from a Planned stage), reuse it
+    and pull latest changes. Otherwise create a new worktree.
     """
     repos_dir = Path(settings.repos_dir)
     repos_dir.mkdir(parents=True, exist_ok=True)
 
     safe_project = project_path.replace("/", "_")
     repo_dir = repos_dir / safe_project
-    safe_branch = branch_name.replace("/", "_")
-    worktree_dir = repos_dir / "worktrees" / f"review-{safe_branch}"
 
     bot_token = settings.gitlab_bot_token or settings.gitlab_token
     gitlab_host = settings.gitlab_api_url.replace("/api/v4", "")
@@ -511,7 +531,23 @@ async def prepare_review_worktree(
         await _run_git(["git", "fetch", "origin"], cwd=repo_dir, env=git_env)
         _log("Fetch complete.")
 
-    # Clean up stale worktree if it exists
+    # Check if a worktree for this branch already exists
+    existing_wt = await _find_worktree_for_branch(branch_name, repo_dir, git_env)
+    if existing_wt and existing_wt.exists():
+        _log(f"Reusing existing worktree at {existing_wt} for branch {branch_name}")
+        # Pull latest changes into the existing worktree
+        await _run_git(
+            ["git", "reset", "--hard", f"origin/{branch_name}"],
+            cwd=existing_wt, env=git_env,
+        )
+        _log(f"Worktree updated to latest origin/{branch_name}")
+        return existing_wt
+
+    # No existing worktree — create a new one
+    safe_branch = branch_name.replace("/", "_")
+    worktree_dir = repos_dir / "worktrees" / f"review-{safe_branch}"
+
+    # Clean up stale worktree dir if it exists
     if worktree_dir.exists():
         _log(f"Removing stale worktree {worktree_dir.name} ...")
         await _run_git(["git", "worktree", "remove", "--force", str(worktree_dir)], cwd=repo_dir, env=git_env)
