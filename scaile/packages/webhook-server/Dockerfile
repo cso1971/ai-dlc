@@ -28,6 +28,22 @@ RUN useradd -m claude && \
     git init /app && \
     chown -R claude:claude /app /home/claude
 
+# Install Claude Code skills globally (writes to /home/claude/.claude/skills/)
+USER claude
+RUN npx skills add Aaronontheweb/dotnet-skills -a claude-code -g -y && \
+    npx skills add analogjs/angular-skills -a claude-code -g -y && \
+    npx skills add sickn33/antigravity-awesome-skills --skill docker-expert -a claude-code -g -y && \
+    npx skills add github/awesome-copilot --skill breakdown-epic-pm -a claude-code -g -y && \
+    npx skills add wshobson/agents --skill code-review-excellence -a claude-code -g -y && \
+    npx skills add levnikolaevich/claude-code-skills \
+      --skill ln-401-task-executor \
+      --skill ln-402-task-reviewer \
+      --skill ln-500-story-quality-gate \
+      --skill ln-511-code-quality-checker \
+      --skill ln-514-regression-checker \
+      -a claude-code -g -y
+USER root
+
 # Configure MCP servers in user-level settings (always trusted, no interactive approval needed)
 COPY .mcp.json /tmp/.mcp.json
 RUN node -e " \

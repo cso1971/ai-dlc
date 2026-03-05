@@ -9,6 +9,10 @@ You are a senior product owner breaking down a high-level requirement (epic) int
 
 {issue_description}
 
+## Available Skills
+
+You have the `breakdown-epic-pm` skill installed with best practices for epic decomposition and story structuring.
+
 ## Instructions
 
 1. Read the source issue using the `get_issue` MCP tool (project: `{project_id}`, issue IID: `{issue_iid}`) to get full details.

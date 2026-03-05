@@ -1,7 +1,7 @@
 # 🧠 CONTEXT.md - Session Summary
 
 > Questo file contiene il contesto e la cronologia delle decisioni prese durante lo sviluppo dei progetti nel monorepo **ai-dlc**.
-> Ultimo aggiornamento: 2026-03-04
+> Ultimo aggiornamento: 2026-03-05
 
 ---
 
@@ -433,6 +433,14 @@ DistributedPlayground/
 - **Bot username** auto-rilevato all'avvio via `GET /api/v4/user` con bot token; override manuale via `GITLAB_BOT_USERNAME`
 - Claude riceve il commento del reviewer, legge diff MR via MCP, corregge il codice (commit + push sul source branch) oppure chiede chiarimenti, e risponde sulla MR via `create_merge_request_note`
 - Worktree creato su branch esistente (a differenza del Planned stage che crea un nuovo branch)
+
+### 8. **Claude Code Skills (domain + workflow)**
+- Skills installate nel Dockerfile del webhook server via `npx skills add` (globali, `/home/claude/.claude/skills/`)
+- **Domain skills**: dotnet-skills (30 skills .NET/C#), angular-skills (10 skills Angular), docker-expert
+- **Workflow skills**: breakdown-epic-pm (epic decomposition), code-review-excellence (structured review)
+- **Quality skills** (levnikolaevich): task-executor, task-reviewer, story-quality-gate, code-quality-checker, regression-checker
+- Ogni prompt template (`breakdown.md`, `ready.md`, `planned.md`, `review.md`) include una sezione "Available Skills" che elenca le skill rilevanti per quello stadio
+- Le skill vengono caricate automaticamente da Claude Code CLI come contesto aggiuntivo
 
 ---
 
