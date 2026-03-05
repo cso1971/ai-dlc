@@ -456,6 +456,7 @@ def detect_mr_note(payload: dict, bot_username: str) -> dict | None:
     return {
         "note": attrs.get("note", ""),
         "note_id": attrs.get("id"),
+        "discussion_id": attrs.get("discussion_id", ""),
         "mr_iid": mr.get("iid"),
         "mr_title": mr.get("title", ""),
         "source_branch": mr.get("source_branch", ""),
@@ -579,6 +580,7 @@ def build_review_prompt(
     reviewer_name: str,
     review_comment: str,
     source_branch: str,
+    discussion_id: str = "",
 ) -> str:
     """Read the review prompt template and interpolate MR details."""
     template = (PROMPTS_DIR / prompt_file).read_text()
@@ -589,6 +591,7 @@ def build_review_prompt(
         reviewer_name=reviewer_name,
         review_comment=review_comment,
         source_branch=source_branch,
+        discussion_id=discussion_id,
     )
 
 
@@ -602,6 +605,7 @@ async def handle_mr_note_webhook(note_info: dict, settings: Settings) -> None:
         project_path = note_info["project_path"]
         reviewer_name = note_info["author_name"]
         review_comment = note_info["note"]
+        discussion_id = note_info.get("discussion_id", "")
 
         model = "sonnet"
 
@@ -628,6 +632,7 @@ async def handle_mr_note_webhook(note_info: dict, settings: Settings) -> None:
             reviewer_name=reviewer_name,
             review_comment=review_comment,
             source_branch=source_branch,
+            discussion_id=discussion_id,
         )
         logger.info(
             "Built review prompt (%d chars) for MR !%d [model=%s]",
