@@ -26,6 +26,30 @@ You have skills installed to guide code review:
 - **Angular skills**: frontend pattern validation
 - **Code quality checker**: DRY/KISS/YAGNI violation detection
 
+## GitLab API
+
+The environment variables `$GITLAB_API_URL` and `$GITLAB_PERSONAL_ACCESS_TOKEN` are already set. Use them for all GitLab API calls below.
+
+**Reply to a discussion thread** (use this instead of `create_merge_request_note` — replies must go in the same thread, not as top-level comments):
+
+```bash
+curl -s --request POST \
+  "$GITLAB_API_URL/projects/{project_id}/merge_requests/{mr_iid}/discussions/{discussion_id}/notes" \
+  --header "PRIVATE-TOKEN: $GITLAB_PERSONAL_ACCESS_TOKEN" \
+  --header "Content-Type: application/json" \
+  --data '{{"body": "Your reply here"}}'
+```
+
+**Resolve a discussion thread:**
+
+```bash
+curl -s --request PUT \
+  "$GITLAB_API_URL/projects/{project_id}/merge_requests/{mr_iid}/discussions/{discussion_id}" \
+  --header "PRIVATE-TOKEN: $GITLAB_PERSONAL_ACCESS_TOKEN" \
+  --header "Content-Type: application/json" \
+  --data '{{"resolved": true}}'
+```
+
 ## Instructions
 
 Follow these steps in order:
@@ -44,36 +68,20 @@ Determine the type of feedback and act accordingly:
 1. Make the requested changes in the appropriate files.
 2. Commit with a descriptive message (e.g., "fix: address review feedback — add input validation").
 3. Push the commit to the remote (`git push origin {source_branch}`).
-4. Reply on the MR using the `create_merge_request_note` MCP tool (project: `{project_id}`, MR IID: `{mr_iid}`) explaining what you changed and why. Reference the commit.
-5. Resolve the discussion thread (see Step 3).
+4. Reply in the discussion thread using the `curl` command from the GitLab API section above, explaining what you changed and why. Reference the commit.
+5. Resolve the discussion thread using the resolve `curl` command.
 
 **If the comment is unclear or ambiguous:**
 1. Do NOT make code changes.
-2. Reply on the MR using the `create_merge_request_note` MCP tool asking a specific clarifying question.
+2. Reply in the discussion thread using the `curl` command, asking a specific clarifying question.
 3. Do NOT resolve the thread — leave it open for the reviewer.
 
 **If the comment is praise, approval, or LGTM:**
 1. Do NOT make code changes.
-2. Reply briefly on the MR using the `create_merge_request_note` MCP tool thanking the reviewer.
-3. Resolve the discussion thread (see Step 3).
+2. Reply briefly in the discussion thread using the `curl` command, thanking the reviewer.
+3. Resolve the discussion thread using the resolve `curl` command.
 
-### Step 3: Resolve the discussion thread
-
-If the discussion should be resolved (code fix applied, or praise/LGTM acknowledged), resolve it by running:
-
-```bash
-curl -s --request PUT \
-  "$GITLAB_API_URL/projects/{project_id}/merge_requests/{mr_iid}/discussions/{discussion_id}" \
-  --header "PRIVATE-TOKEN: $GITLAB_PERSONAL_ACCESS_TOKEN" \
-  --header "Content-Type: application/json" \
-  --data '{{"resolved": true}}'
-```
-
-The environment variables `$GITLAB_API_URL` and `$GITLAB_PERSONAL_ACCESS_TOKEN` are already set.
-
-Skip this step if the discussion ID is empty or if you asked a clarifying question (the thread should stay open).
-
-### Step 4: Return summary
+### Step 3: Return summary
 
 Return a short summary of what you did:
 - Whether you made code changes (and what)

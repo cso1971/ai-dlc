@@ -1,6 +1,9 @@
 #!/usr/bin/env npx tsx
 import "dotenv/config";
 import "zx/globals";
+import { readFileSync, writeFileSync } from "fs";
+import { resolve, dirname } from "path";
+import { fileURLToPath } from "url";
 
 // ---------------------------------------------------------------------------
 // Config
@@ -69,6 +72,17 @@ if (!token || !token.startsWith("glpat-")) {
 }
 
 // ---------------------------------------------------------------------------
-// 3. Output
+// 3. Update .env file
 // ---------------------------------------------------------------------------
-console.log(token);
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const envPath = resolve(__dirname, "../.env");
+let envContent = readFileSync(envPath, "utf-8");
+
+if (/^GITLAB_TOKEN=.*/m.test(envContent)) {
+	envContent = envContent.replace(/^GITLAB_TOKEN=.*/m, `GITLAB_TOKEN=${token}`);
+} else {
+	envContent += `\nGITLAB_TOKEN=${token}\n`;
+}
+
+writeFileSync(envPath, envContent);
+console.log(`GITLAB_TOKEN written to .env (${token.slice(0, 10)}...)`);
