@@ -21,12 +21,12 @@ This is the **Council of Agents**: a model where humans and AI agents collaborat
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                                                         │
-│                   🏛️  THE COUNCIL                        │
+│                   🏛️  THE COUNCIL                       │
 │                                                         │
-│   👤 Product Owner    🤖 Product Analyst Agent          │
-│   👤 Business Analyst 🤖 Architect Agent                │
-│   👤 Developer        🤖 Developer Agent                │
-│   👤 Tester           🤖 QA Strategist Agent            │
+│   👤 Product Owner    🤖 Product Analyst Agent         │
+│   👤 Business Analyst 🤖 Architect Agent               │
+│   👤 Developer        🤖 Developer Agent               │
+│   👤 Tester           🤖 QA Strategist Agent           │
 │                       🤖 Code Review Agent              │
 │                                                         │
 │              🎯 Coordinator (AI)                        │
@@ -43,18 +43,20 @@ This is the **Council of Agents**: a model where humans and AI agents collaborat
 
 Each participant has a **clear role** and area of expertise. There is no distinction of "rank" between humans and agents: what matters is what they can do.
 
-| Participant | Type | What they do |
-|-------------|------|--------------|
-| **Product Owner** | 👤 Human | Defines priorities and business value |
-| **Business Analyst** | 👤 Human | Clarifies requirements and processes |
-| **Developer** | 👤 Human | Brings technical expertise and system knowledge |
-| **Tester** | 👤 Human | Verifies quality and compliance with requirements |
-| **Product Analyst** | 🤖 Agent | Analyzes requirements, proposes user stories, validates acceptance criteria |
-| **Architect** | 🤖 Agent | Analyzes the existing codebase, proposes technical solutions, identifies impacts |
-| **Developer Agent** | 🤖 Agent | Writes code, creates tests, implements solutions |
-| **QA Strategist** | 🤖 Agent | Writes test plans, identifies critical scenarios and edge cases |
-| **Code Reviewer** | 🤖 Agent | Reviews code, suggests improvements, checks standards compliance |
-| **Coordinator** | 🤖 Agent | Moderates the discussion, decides who to involve, synthesizes consensus |
+
+| Participant          | Type     | What they do                                                                     |
+| -------------------- | -------- | -------------------------------------------------------------------------------- |
+| **Product Owner**    | 👤 Human | Defines priorities and business value                                            |
+| **Business Analyst** | 👤 Human | Clarifies requirements and processes                                             |
+| **Developer**        | 👤 Human | Brings technical expertise and system knowledge                                  |
+| **Tester**           | 👤 Human | Verifies quality and compliance with requirements                                |
+| **Product Analyst**  | 🤖 Agent | Analyzes requirements, proposes user stories, validates acceptance criteria      |
+| **Architect**        | 🤖 Agent | Analyzes the existing codebase, proposes technical solutions, identifies impacts |
+| **Developer Agent**  | 🤖 Agent | Writes code, creates tests, implements solutions                                 |
+| **QA Strategist**    | 🤖 Agent | Writes test plans, identifies critical scenarios and edge cases                  |
+| **Code Reviewer**    | 🤖 Agent | Reviews code, suggests improvements, checks standards compliance                 |
+| **Coordinator**      | 🤖 Agent | Moderates the discussion, decides who to involve, synthesizes consensus          |
+
 
 ### The deliberation cycle
 
@@ -111,27 +113,32 @@ The Coordinator collects all contributions, evaluates whether consensus has been
 
 ### Round 1 — Initial analysis
 
-| Who | What they say |
-|-----|---------------|
-| 🤖 **Product Analyst** | "I propose 4 user stories: return request, approval, return shipment, refund. Here are the acceptance criteria for each." |
-| 🤖 **Architect** | "Heads up: the 'refund' story impacts the invoicing module, which is currently just a placeholder. We need an infrastructure task first." |
-| 🤖 **QA Strategist** | "The 'return approval' story has no testable criteria. I propose adding: 'given an order delivered more than 30 days ago, the return must be rejected'." |
-| 👤 **Product Owner** | "The Architect's point is valid. For now, let's exclude automatic refund and handle it manually." |
+
+| Who                    | What they say                                                                                                                                            |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 🤖 **Product Analyst** | "I propose 4 user stories: return request, approval, return shipment, refund. Here are the acceptance criteria for each."                                |
+| 🤖 **Architect**       | "Heads up: the 'refund' story impacts the invoicing module, which is currently just a placeholder. We need an infrastructure task first."                |
+| 🤖 **QA Strategist**   | "The 'return approval' story has no testable criteria. I propose adding: 'given an order delivered more than 30 days ago, the return must be rejected'." |
+| 👤 **Product Owner**   | "The Architect's point is valid. For now, let's exclude automatic refund and handle it manually."                                                        |
+
 
 ### Round 2 — Revision
 
-| Who | What they say |
-|-----|---------------|
-| 🤖 **Product Analyst** | "Updated: removed the automatic refund story, added the time-based criterion to the approval story. Now we have 3 stories." |
-| 🤖 **Architect** | "Consistent with the current system. OK." |
-| 👤 **Business Analyst** | "Approved. The criteria are clear." |
-| 👤 **Product Owner** | "Approved. ✓" |
+
+| Who                     | What they say                                                                                                               |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| 🤖 **Product Analyst**  | "Updated: removed the automatic refund story, added the time-based criterion to the approval story. Now we have 3 stories." |
+| 🤖 **Architect**        | "Consistent with the current system. OK."                                                                                   |
+| 👤 **Business Analyst** | "Approved. The criteria are clear."                                                                                         |
+| 👤 **Product Owner**    | "Approved. ✓"                                                                                                               |
+
 
 ### Result
 
 The Coordinator records the consensus and creates the 3 user stories in GitLab, complete with acceptance criteria validated by all participants — humans and agents together.
 
 **What happened differently compared to the traditional model?**
+
 - The architectural objection surfaced **before** writing a single line of code
 - Test criteria were defined **alongside** the stories, not after
 - The decision to exclude the refund was made **with all the information on the table**
@@ -141,21 +148,25 @@ The Coordinator records the consensus and creates the 3 user stories in GitLab, 
 ## Benefits for everyone
 
 ### For product people (PO, BA)
+
 - AI proposals arrive **already structured** with acceptance criteria
 - Technical risks emerge **immediately**, not at the end of development
 - The process is **transparent**: every decision has a traceable rationale
 
 ### For developers (DEV)
+
 - Specifications are **clearer** because they've been validated from multiple perspectives
 - Code review is **continuous**, not just at the end
 - AI handles the repetitive parts; the developer focuses on the important decisions
 
 ### For testers (TESTER)
+
 - Test plans are suggested by AI **in parallel** with development
 - Edge cases are identified **early**, not discovered in production
 - Acceptance criteria are **testable by design**
 
 ### For management
+
 - **Full traceability**: every decision has an audit trail (who proposed, who objected, why)
 - **Less rework**: problems caught early = lower correction costs
 - **Scalability**: specialized agents (security, performance) can be added without changing the process
@@ -167,15 +178,17 @@ The Coordinator records the consensus and creates the 3 user stories in GitLab, 
 
 The Council doesn't replace the process stages — it **enriches** them. Each stage becomes a moment of collaboration instead of a handoff.
 
-| Stage | Today | With the Council |
-|-------|-------|------------------|
-| **Requirements** | PO writes the epic | PO writes the epic. The Council provides early feedback on feasibility and risks |
-| **Analysis** | AI creates stories on its own | The Council proposes stories, Architect validates, QA verifies testability. Rounds until consensus |
-| **Refinement** | PO/BA review manually | Humans and agents comment on the same channel. Feedback is integrated in real time |
-| **Planning** | AI analyzes code and creates tasks | Architect + Developer Agent propose tasks. QA proposes the test plan. Humans approve |
-| **Development** | AI writes code on its own | Developer Agent implements. Code Reviewer does a pre-review before presenting the work |
-| **Review** | A human reviews the PR | Code Reviewer + human Developer review **together**, commenting on the same thread |
-| **Testing** | The tester works alone | QA Agent suggests test cases, the human Tester executes them and reports results |
+
+| Stage            | Today                              | With the Council                                                                                   |
+| ---------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------- |
+| **Requirements** | PO writes the epic                 | PO writes the epic. The Council provides early feedback on feasibility and risks                   |
+| **Analysis**     | AI creates stories on its own      | The Council proposes stories, Architect validates, QA verifies testability. Rounds until consensus |
+| **Refinement**   | PO/BA review manually              | Humans and agents comment on the same channel. Feedback is integrated in real time                 |
+| **Planning**     | AI analyzes code and creates tasks | Architect + Developer Agent propose tasks. QA proposes the test plan. Humans approve               |
+| **Development**  | AI writes code on its own          | Developer Agent implements. Code Reviewer does a pre-review before presenting the work             |
+| **Review**       | A human reviews the PR             | Code Reviewer + human Developer review **together**, commenting on the same thread                 |
+| **Testing**      | The tester works alone             | QA Agent suggests test cases, the human Tester executes them and reports results                   |
+
 
 ---
 
@@ -199,21 +212,25 @@ This does not mean AI decides for us. It means that:
 There's no need to change everything at once. We propose a gradual path:
 
 ### Phase 1 — First additional agent
+
 Add a second agent (Architect) to the analysis stage. The Coordinator is simple: it invokes both agents in sequence, posts the results as comments, and waits for the human.
 
 **Expected outcome**: stories produced already have technical validation before human review.
 
 ### Phase 2 — Deliberation protocol
+
 Introduce the proposal → objection → revision → consensus cycle. Participants (humans and agents) interact on the same channel (GitLab comments).
 
 **Expected outcome**: discussions are structured and traceable. Decisions have an audit trail.
 
 ### Phase 3 — Council in code review
+
 Extend the model to the code review stage: Code Reviewer Agent and human Developer collaborate as peers on the same PR.
 
 **Expected outcome**: faster and more thorough reviews, technical issues caught before merge.
 
 ### Phase 4 — Full Council
+
 Generalize the Coordinator and involve all specialized agents at every stage of the workflow.
 
 **Expected outcome**: the development process becomes a **continuous collaboration** between humans and agents.
@@ -240,3 +257,5 @@ Yes. The roadmap is designed to be incremental. Start with a single additional a
 ---
 
 *Document generated on March 7, 2026 — ai-dlc project*
+
+**Christian Soliman** — [christian.soliman@adesso.ch](mailto:christian.soliman@adesso.ch)
